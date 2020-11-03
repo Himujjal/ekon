@@ -1,19 +1,23 @@
 # EKON - Ek Object Notation
 
-[ekon.org](https://ekon.org)
+[ekon.org - COMING SOON!](https://ekon.org)
 
 EKON is a sane alternative for JSON that geared towards readability and compressibility. It can be used to write both data based files and config files.
 ***Ek*** (pronounced 'A(e)k') is a Sanskrit derived word which when translated to English means **one (1)**. EKON represents that philosophy. **Ek (one)** markup language for all uses.
 
-# README Contents
+## README Contents
 
 - [EKON - Ek Object Notation](#ekon---ek-object-notation)
 - [README Contents](#readme-contents)
 - [Features](#features)
 - [Syntax & Specification](#syntax-&-specification)
 - [Schema Support](#schema-support)
+- [Language Support](#language-support)
+- [IDE Support for `.ekon` files](#ide-support)
+- [Contribution and Issues](#contribution-and-issues)
+- [License](#license)
 
-# Features:
+## Features
 
 - **Readability:** is kept in mind when designing EKON. So, EKON might feel similar to YAML but without constraining users to tab-based spacing
 - **Compressibility** is a major factor that contributed to JSON being the most popular mode of communication among libraries and frameworks. EKON code is roughly ~40% smaller than JSON while maintaining readibility.
@@ -24,12 +28,12 @@ EKON is a sane alternative for JSON that geared towards readability and compress
 - **Optional Commas** not only saves you keystrokes and filesize, but also improves readibility
 - **Optional Root Object Curly Braces** also helps improve readibility
 
-# Syntax & Specification:
+## Syntax & Specification:
 
 Remember EKON is fully compatible with JSON and [JSON5](https://json5.org). Here is the whole specification of EKON at one glance from [specs.ekon](./specs.ekon).
 
 ```javascript
-/// type.d.ek // definition file for the current EKON file.
+/// specs.d.ek // or specs.d.ts // definition file for the current EKON file.
 // { // If the global (root) structure is an object/map, you can ignore writing '{' (optional)
 
 // single line comments only
@@ -38,6 +42,11 @@ Remember EKON is fully compatible with JSON and [JSON5](https://json5.org). Here
 // strings
 unquotedKey: "Represents a string & you can use 'single-quotes' inside"
 singleQuotes: 'A string & you can use "double-quotes" inside'
+multilineStrings: `
+This is
+a multiline
+string
+`
 
 // numbers
 intNumber: 123
@@ -56,7 +65,7 @@ arrays: [
 ]
 
 // key-value maps/objects
-hello: {
+objectMap: {
     world: "No comma rules still apply inside"
     arr: [
         "Hello"
@@ -70,22 +79,72 @@ hello: {
     "array": [
         "hello"
     ],
-    "number": 123
+    "numberVal": 123
 },
 "key": 123,
-{
+"jsonObject": {
     "key": "value"
 }
 
-// } - // As said before. If root structure is an object/map, `{}` is optional
+// Compressed form
+stringVal:'h'arrayVal:[1 2 3 4]numVal:1.1 obj:{k: 'v'}multiline:`hi\nthere\n`
+
+// } - // As said before. If root structure is an object/map, `{}` is optional.
+
+// Root Array must require `[]` though
 ```
 
 
-# Schema Support
+## Schema Support
 
-EKON supports schema based
+EKON supports schema based on a `.d.ek` (EkScript) or `.d.ts` (TypeScript) definition files. Simply write the type
+of the `.ekon` file as `type ekonSpecs = ..` in the global namespace. The type name should start with `ekon` followed by the name of the file.
 
-# Language Support:
+The `.d.ek` or `.d.ts` follow the TypeScript type definition specification.
+
+For manual type declaration location, add `/// file: specs.d.ek | ekonSpecs` on the first line of the `.ekon` file.
+
+If you want to have the type declaration in the `.ekon` file, declare the definition under triple slash comments (`///`) until your declaration
+is not complete. Specification for this is the TypeScript type specs:
+
+If the root object 
+```typescript
+/// {
+/// key: string,
+/// ...
+/// }
+```
+or
+
+if the root object/map is an array:
+```typescript
+/// [string, { key: number }, string[] ]
+```
+
+Example:
+
+```typescript
+// specs.d.ek
+
+type ekonSpecs = {
+    unquotedKey: string,
+    singleQuotes: string,
+    multilineStrings: string,
+    intNumber: number,
+    floatingPointNumber: number,
+    leadingDecimalPointNumber: number,
+    trailingDecimlPointNumber: number,
+    positiveSignNumber: number,
+    hexadecimalNumber: number,
+    arrays: [ string, number, { key: string }, string[]],
+    objectMap: { world: string, arr: string[], anotherNumber: number }
+    hello: { array: string, "number": number },
+    key: number,
+    jsonObject: { key: string }   
+}
+```
+
+## Language Support:
 
 - [ ] C ([This Repo - **c_api** folder](./c)) (Yes it works without Nim compiler)
 - [ ] Nim ([This Repo](./))
@@ -109,7 +168,7 @@ EKON supports schema based
 - [ ] ~~Elixir~~
 
 
-# IDE Support for `.ekon` files
+## IDE Support for `.ekon` files
 
 - [ ] ~~Language Server~~
 - [ ] ~~Vim~~
@@ -120,15 +179,15 @@ EKON supports schema based
 - [ ] ~~Sublime~~
 - [ ] ~~Emacs~~
 
-# Nim API:
+## Nim API:
 
 TODO!
 
-# C API:
+## C API:
 
 TODO!
 
-# ROADMAP:
+## ROADMAP:
 
 - [ ] Nim + C repo: 
     - [ ] Write & test the nim code
@@ -138,7 +197,7 @@ TODO!
 - [ ] EKON All Language Support
 - [ ] EKON RPC repo
 
-# Contribution and Issues:
+## Contribution and Issues:
 
 Contributions are always, always welcome!
 
@@ -147,6 +206,33 @@ For ***Contribution***, please refer to [Contributors](./contribution.md#contrib
 For ***Issues***, Please refer to [Issues](./contribution.md#issues).
 
 You can find the same in the [Wiki]() section also.
+
+## [License](./license)
+
+```
+MIT License
+
+Copyright (c) 2020 EK
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 
 
 

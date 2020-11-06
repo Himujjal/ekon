@@ -1,8 +1,8 @@
 # EKON - Ek Object Notation
 
-[ekon.org - COMING SOON!](https://ekon.org)
+[ekon.github.io - COMING SOON!](https://ekon.github.io)
 
-EKON is a sane alternative for JSON that geared towards readability and compressibility. It can be used to write both data based files and config files.
+EKON is a sane alternative for JSON that is geared towards readability and compressibility. It can be used to write both data-based files and config files.
 ***Ek*** (pronounced 'A(e)k') is a Sanskrit derived word which when translated to English means **one (1)**. EKON represents that philosophy. **Ek (one)** markup language for all uses.
 
 ## README Contents
@@ -20,9 +20,9 @@ EKON is a sane alternative for JSON that geared towards readability and compress
 ## Features
 
 - **Readability:** is kept in mind when designing EKON. So, EKON might feel similar to YAML but without constraining users to tab-based spacing
-- **Compressibility** is a major factor that contributed to JSON being the most popular mode of communication among libraries and frameworks. EKON code is roughly ~40% smaller than JSON while maintaining readibility.
+- **Compressibility** is a major factor that contributed to JSON being the most popular mode of communication among libraries and frameworks. EKON code is roughly ~40% smaller than JSON while maintaining high readibility.
 - **Backwards Compatibility with JSON** is a factor that is kept in mind while designing EKON. Rename your `.json` file to `.ekon` and unlock a lot of possibilities.
-- **Fastest parser for EKON** is provided thanks to [zzzJSON](https://github.com/dacez/zzzJSON) written in C.
+- **A very fast parser for EKON** is provided thanks to [zzzJSON](https://github.com/dacez/zzzJSON) written in C.
 - **Full compatibility with all programming languages** made easy by writing the library in C. WASM support boosts the cause further.
 - **Schema support** using `*.d.ek` (EkScript definition) or `*.d.ts` (TypeScript definition files) files. [More on this](#schema-support)
 - **Optional Commas** not only saves you keystrokes and filesize, but also improves readibility
@@ -39,9 +39,12 @@ Remember EKON is fully compatible with JSON and [JSON5](https://json5.org). Here
 // single line comments only
 // you can skip writing the commas (optional)
 
+// null
+nullValue: null
+
 // strings
-unquotedKey: "Represents a string & you can use 'single-quotes' inside"
-singleQuotes: 'A string & you can use "double-quotes" inside'
+doubleQuotes: "You can use 'single-quotes' inside"
+singleQuotes: 'You can use "double-quotes" inside'
 multilineStrings: `
 This is
 a multiline
@@ -66,7 +69,7 @@ arrays: [
 
 // key-value maps/objects
 objectMap: {
-    world: "No comma rules still apply inside"
+    world: 'No comma rules still apply inside'
     arr: [
         "Hello"
         "World"
@@ -87,7 +90,7 @@ objectMap: {
 }
 
 // Compressed form
-stringVal:'h'arrayVal:[1 2 3 4]numVal:1.1 obj:{k: 'v'}multiline:`hi\nthere\n`
+stringVal:'h'arrayVal:[1,2,3,4]numVal:1.1 obj:{k: 'v'}multiline:"hi\nthere\n"
 
 // } - // As said before. If root structure is an object/map, `{}` is optional.
 
@@ -179,7 +182,9 @@ type ekonSpecs = {
 - [ ] ~~Sublime~~
 - [ ] ~~Emacs~~
 
-## Nim API:
+# Benchmarks
+
+All benchmark code is to be found [benchmarks](./benchmarks) folder
 
 TODO!
 
@@ -187,11 +192,14 @@ TODO!
 
 TODO!
 
+## Nim API:
+
+TODO!
+
 ## ROADMAP:
 
 - [ ] Nim + C repo: 
     - [ ] Write & test the nim code
-    - [ ] Write & test the compiled C API
 - [ ] EKON Language Server
 - [ ] EKON IDE Support
 - [ ] EKON All Language Support

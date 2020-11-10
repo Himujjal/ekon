@@ -57,9 +57,13 @@ static inline void ekonFree(void *ptr) { freeMemoryCount += 1, free(ptr); }
 // -----------------------------------------
 
 #if EKON_EXPECT_MODE == 1
-// Only for gcc, clang __builtin_expect is like if(x == 1) but more CPU cache
-// friendly. More on that:
+// Only for gcc, clang __builtin_expect is for compiler optimizations
+// __builtin_expect(x, n) will return x
+// but if n == 1, compiler optimizes knowing the fact that it is more likely
+// that x will be equal to 1 most of the time (statistically) if n == 0, it is
+// more likely that x == 0. This is some heavy level compiler shit!
 // https://www.ibm.com/support/knowledgecenter/SSGH2K_12.1.0/com.ibm.xlc121.aix.doc/compiler_ref/bif_builtin_expect.html
+// https://stackoverflow.com/questions/7346929/what-is-the-advantage-of-gccs-builtin-expect-in-if-else-statements
 #define EKON_LIKELY(x) __builtin_expect(x, 1)
 #define EKON_UNLIKELY(x) __builtin_expect(x, 0)
 
@@ -141,7 +145,7 @@ static inline bool ekonValueSetNumStrLenFast(struct EkonValue *v,
                                              const char *num, uint32_t len);
 static inline bool ekonValueSetNumStr(struct EkonValue *v, const char *num);
 static inline bool ekonValueSetNumStrLen(struct EkonValue *v, const char *num,
-                                         char len);
+                                         uint32_t len);
 static inline bool ekonValueSetNum(struct EkonValue *v, const double d);
 static inline bool ekonValueSetDouble(struct EkonValue *v, const double d);
 static inline bool ekonValueSetInt(struct EkonValue *v, const int n);
@@ -254,7 +258,7 @@ static inline const long long *GetLongLong(Value *v) {
 static inline const bool *GetBool(const Value *v) {
   return ekonValueGetBool(v);
 }
-static inline bool isNull(const Value *v) { return ekonValueIsNull(v); }
+static inline bool IsNull(const Value *v) { return ekonValueIsNull(v); }
 static inline const char *GetKey(Value *v) { return ekonValueGetKey(v); }
 static inline const char *GetUnEscapeKey(Value *v) {
   return ekonValueGetUnEspaceKey(v);
@@ -594,7 +598,8 @@ struct EkonValue {
   struct EkonAllocator *a;
 };
 
-// initEkonValue
+// allocate new value into the memory and store the memory pointer
+// in the v->allocator (v->a) value
 static inline struct EkonValue *ekonValueNew(struct EkonAllocator *alloc) {
   struct EkonValue *v =
       (struct EkonValue *)ekonAllocatorAlloc(alloc, sizeof(struct EkonValue));
@@ -1268,6 +1273,8 @@ static inline bool ekonCheckNumLen(struct EkonAllocator *alloc, const char *s,
 // Value Parse Fast - API
 static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   struct EkonNode *srcNode;
+
+  // v->node is empty and v->alloc has pointer to EkonNode
   if (EKON_LIKELY(v->n == 0)) {
     v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
@@ -1277,7 +1284,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     v->n->father = 0;
     v->n->key = 0;
     srcNode = 0;
-  } else {
+  } else { // v->node is not empty and allocator is used to allocate srcNode
     srcNode =
         (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
     if (EKON_UNLIKELY(srcNode == 0))
@@ -1289,6 +1296,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   struct EkonNode *node = v->n;
 
   char c = ekonPeek(s, &index);
+
   switch (c) {
   case '[': {
     node->type = EKONTYPEARRAY;
@@ -1448,8 +1456,9 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
           *v->n = *srcNode;
         return false;
       }
-    } else
+    } else {
       node->key = 0;
+    }
 
     c = ekonPeek(s, &index);
 
@@ -1473,6 +1482,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
 
       n->father = node;
       n->prev = 0;
+
       node->value.node = n;
       node->end = n;
       node->len = 1;
@@ -1481,6 +1491,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     }
     case '{': {
       node->type = EKONTYPEOBJECT;
+
       if (ekonUnlikelyPeekAndConsume('}', s, &index)) {
         node->value.node = 0;
         node->len = 0;
@@ -1503,6 +1514,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
       node->end = n;
       node->len = 1;
       node = n;
+
       continue;
     }
     case 'n': {
@@ -1548,6 +1560,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
       uint32_t start = index;
       if (EKON_UNLIKELY(ekonUnlikelyConsume('"', s, &index))) {
         node->type = EKONTYPESTRING;
+        printf("node->father->type: %d\n", node->father->type);
         node->value.str = s + index;
         node->len = 0;
         break;
@@ -1579,6 +1592,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
       return false;
     }
     }
+
     while (EKON_LIKELY(node != v->n)) {
       if (ekonLikelyPeekAndConsume(',', s, &index)) {
         struct EkonNode *n = (struct EkonNode *)ekonAllocatorAlloc(
@@ -1592,18 +1606,20 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
         }
         n->father = node->father;
         n->prev = node;
+
         node->father->end = n;
-        ++(n->father->len);
+        ++(node->father->len);
         node->next = n;
         node = n;
         break;
       } else {
         char c = ekonPeek(s, &index);
-        if (EKON_LIKELY((c == '}' &&
-                         EKON_LIKELY(node->father->type == EKONTYPEOBJECT)) ||
-                        EKON_LIKELY(EKON_LIKELY(c == ']') &&
-                                    EKON_LIKELY(node->father->type ==
-                                                EKONTYPEARRAY)))) {
+
+        if (EKON_LIKELY((EKON_LIKELY(c == '}') &&
+                         EKON_LIKELY(node->father->type == EKONTYPEOBJECT))) ||
+            EKON_LIKELY(EKON_LIKELY(c == ']') &&
+                        EKON_LIKELY(node->father->type == EKONTYPEARRAY))) {
+
           node->next = 0;
           node = node->father;
         } else {

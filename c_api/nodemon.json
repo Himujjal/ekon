@@ -1,5 +1,0 @@
-{
-  "ext": "c,h",
-  "exec": "clear && gcc main.c -o main && ./main",
-  "watch": ["*.c", "*.h", "*.json"]
-}

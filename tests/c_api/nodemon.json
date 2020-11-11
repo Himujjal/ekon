@@ -1,5 +1,0 @@
-{
-  "watch": ["a_basic_tests.c", "../../ekon.h"],
-  "ext": "c,h",
-  "exec": "clear && gcc a_basic_tests.c -o main && ./main"
-}

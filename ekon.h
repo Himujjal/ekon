@@ -11,13 +11,14 @@ static const bool ekonTrue = true;
 static const bool ekonFalse = false;
 
 // enumerate types with numbers
-typedef char EkonType;
-static const char EkonTypeArray = 2;
-static const char EkonTypeObject = 3;
-static const char EkonTypeString = 4;
-static const char EkonTypeNumber = 6;
-static const char EkonTypeBool = 1;
-static const char EkonTypeNull = 5;
+typedef enum {
+  EKON_TYPE_BOOL,
+  EKON_TYPE_ARRAY,
+  EKON_TYPE_OBJECT,
+  EKON_TYPE_STRING,
+  EKON_TYPE_NULL,
+  EKON_TYPE_NUMBER,
+} EkonType;
 
 // store constants in char arrays
 static const char *ekonStrTrue = "true";
@@ -121,7 +122,7 @@ static inline struct EkonValue *ekonValueObjGet(const struct EkonValue *v,
 static inline struct EkonValue *
 ekonValueObjGetLen(const struct EkonValue *v, const char *key, uint32_t len);
 
-static inline const char *ekonValueType(const struct EkonValue *v);
+static inline const EkonType *ekonValueType(const struct EkonValue *v);
 static inline uint32_t ekonValueSize(const struct EkonValue *v);
 
 static inline struct EkonValue *ekonValueArrayGet(const struct EkonValue *v,
@@ -204,19 +205,6 @@ static inline bool ekonValueObjDel(struct EkonValue *v, const char *key);
 typedef struct EkonAllocator Allocator;
 typedef struct EkonValue Value;
 
-#define EKONTYPEBOOL 1
-#define EKONTYPEARRAY 2
-#define EKONTYPEOBJECT 3
-#define EKONTYPESTRING 4
-#define EKONTYPENULL 5
-#define EKONTYPENUMBER 6
-static const char EKONTypeArray = EKONTYPEARRAY;
-static const char EKONTypeObject = EKONTYPEOBJECT;
-static const char EKONTypeString = EKONTYPESTRING;
-static const char EKONTypeNumber = EKONTYPENUMBER;
-static const char EKONTypeBool = EKONTYPEBOOL;
-static const char EKONTypeNull = EKONTYPENULL;
-
 // API declarations
 static inline Allocator *NewAllocator() { return ekonAllocatorNew(); }
 static inline void ReleaseAllocator(Allocator *rootAlloc) {
@@ -273,7 +261,7 @@ static inline const Value *ObjGetLen(const Value *v, const char *key,
                                      uint32_t len) {
   return ekonValueObjGetLen(v, key, len);
 }
-static inline const char *Type(const Value *v) { return ekonValueType(v); }
+static inline const EkonType *Type(const Value *v) { return ekonValueType(v); }
 static inline uint32_t Size(const Value *v) { return ekonValueSize(v); }
 static inline Value *ArrayGet(const Value *v, uint32_t index) {
   return ekonValueArrayGet(v, index);
@@ -497,7 +485,7 @@ static inline char *ekonAllocatorAlloc(struct EkonAllocator *alloc,
   struct EkonANode *currNode = alloc->end;
   uint32_t s = currNode->size;
   if (EKON_UNLIKELY(currNode->pos + size > s)) {
-    s += ekonDelta;
+    s *= ekonDelta;
     while (EKON_UNLIKELY(size > s))
       s *= ekonDelta;
     if (EKON_UNLIKELY(ekonAllocatorAppendChild(s, alloc) == false))
@@ -505,7 +493,7 @@ static inline char *ekonAllocatorAlloc(struct EkonAllocator *alloc,
     currNode = alloc->end;
   }
   char *ret = currNode->data + currNode->pos;
-  currNode->pos = size;
+  currNode->pos += size;
   return ret;
 }
 
@@ -578,7 +566,7 @@ static inline const char *ekonStringStr(struct EkonString *str) {
 
 // The primary json node
 struct EkonNode {
-  char type;
+  EkonType type;
   const char *key;
   uint32_t keyLen;
   union {
@@ -703,8 +691,8 @@ static inline bool ekonConsumeFalse(const char *s, uint32_t *index) {
 
 // consume 'true' string
 static inline bool ekonConsumeTrue(const char *s, uint32_t *index) {
-  if (EKON_LIKELY(*((uint32_t *)ekonStrTrue) == *((uint32_t *)(s + *index)))) {
-    *index += 4;
+  if (EKON_LIKELY(*((uint32_t *)ekonStrTrue) == *((uint32_t *)(s + *index - 1)))) {
+    *index += 3;
     return true;
   }
   return false;
@@ -1284,7 +1272,8 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     v->n->father = 0;
     v->n->key = 0;
     srcNode = 0;
-  } else { // v->node is not empty and allocator is used to allocate srcNode
+  } else {
+    // v->node is not empty and allocator is used to allocate srcNode
     srcNode =
         (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
     if (EKON_UNLIKELY(srcNode == 0))
@@ -1299,7 +1288,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
 
   switch (c) {
   case '[': {
-    node->type = EKONTYPEARRAY;
+    node->type = EKON_TYPE_ARRAY;
     if (ekonUnlikelyPeekAndConsume(']', s, &index)) {
       node->value.node = 0;
       node->len = 0;
@@ -1324,7 +1313,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     break;
   }
   case '{': {
-    node->type = EKONTYPEOBJECT;
+    node->type = EKON_TYPE_OBJECT;
     if (ekonUnlikelyPeekAndConsume('}', s, &index)) {
       node->value.node = 0;
       node->len = 0;
@@ -1351,7 +1340,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   }
   case 'n': {
     if (EKON_LIKELY(ekonConsumeNull(s, &index))) {
-      node->type = EKONTYPENULL;
+      node->type = EKON_TYPE_NULL;
       node->value.str = ekonStrNull;
       node->len = 4;
       break;
@@ -1364,7 +1353,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   }
   case 'f': {
     if (EKON_LIKELY(ekonConsumeFalse(s, &index))) {
-      node->type = EKONTYPEBOOL;
+      node->type = EKON_TYPE_BOOL;
       node->value.str = ekonStrFalse;
       node->len = 5;
       break;
@@ -1377,7 +1366,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   }
   case 't': {
     if (EKON_LIKELY(ekonConsumeTrue(s, &index))) {
-      node->type = EKONTYPEBOOL;
+      node->type = EKON_TYPE_BOOL;
       node->value.str = ekonStrTrue;
       node->len = 4;
       break;
@@ -1391,13 +1380,13 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   case '"': {
     uint32_t start = index;
     if (EKON_UNLIKELY(ekonUnlikelyConsume('"', s, &index))) {
-      node->type = EKONTYPESTRING;
+      node->type = EKON_TYPE_STRING;
       node->value.str = s + index;
       node->len = 0;
       break;
     }
     if (EKON_LIKELY(ekonConsumeStr(s, &index))) {
-      node->type = EKONTYPESTRING;
+      node->type = EKON_TYPE_STRING;
       node->value.str = s + start;
       node->len = index - start - 1;
       break;
@@ -1412,7 +1401,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   default: {
     uint32_t start = index - 1;
     if (EKON_LIKELY(ekonConsumeNum(s, &index))) {
-      node->type = EKONTYPENUMBER;
+      node->type = EKON_TYPE_NUMBER;
       node->value.str = s + start;
       node->len = index - start;
     }
@@ -1425,7 +1414,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   }
 
   while (EKON_LIKELY(node != v->n)) {
-    if (node->father->type == EKONTYPEOBJECT) {
+    if (node->father->type == EKON_TYPE_OBJECT) {
       if (EKON_UNLIKELY(ekonLikelyPeekAndConsume('"', s, &index) == false)) {
         if (EKON_LIKELY(srcNode == 0))
           v->n = srcNode;
@@ -1464,7 +1453,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
 
     switch (c) {
     case '[': {
-      node->type = EKONTYPEARRAY;
+      node->type = EKON_TYPE_ARRAY;
       if (ekonUnlikelyPeekAndConsume(']', s, &index)) {
         node->value.node = 0;
         node->len = 0;
@@ -1490,7 +1479,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
       continue;
     }
     case '{': {
-      node->type = EKONTYPEOBJECT;
+      node->type = EKON_TYPE_OBJECT;
 
       if (ekonUnlikelyPeekAndConsume('}', s, &index)) {
         node->value.node = 0;
@@ -1519,7 +1508,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     }
     case 'n': {
       if (EKON_LIKELY(ekonConsumeNull(s, &index))) {
-        node->type = EKONTYPENULL;
+        node->type = EKON_TYPE_NULL;
         node->value.str = ekonStrNull;
         node->len = 4;
         break;
@@ -1532,7 +1521,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     }
     case 'f': {
       if (EKON_LIKELY(ekonConsumeFalse(s, &index))) {
-        node->type = EKONTYPEBOOL;
+        node->type = EKON_TYPE_BOOL;
         node->value.str = ekonStrFalse;
         node->len = 5;
         break;
@@ -1545,7 +1534,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     }
     case 't': {
       if (EKON_LIKELY(ekonConsumeTrue(s, &index))) {
-        node->type = EKONTYPEBOOL;
+        node->type = EKON_TYPE_BOOL;
         node->value.str = ekonStrTrue;
         node->len = 4;
         break;
@@ -1559,14 +1548,13 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     case '"': {
       uint32_t start = index;
       if (EKON_UNLIKELY(ekonUnlikelyConsume('"', s, &index))) {
-        node->type = EKONTYPESTRING;
-        printf("node->father->type: %d\n", node->father->type);
+        node->type = EKON_TYPE_STRING;
         node->value.str = s + index;
         node->len = 0;
         break;
       }
       if (EKON_LIKELY(ekonConsumeStr(s, &index))) {
-        node->type = EKONTYPESTRING;
+        node->type = EKON_TYPE_STRING;
         node->value.str = s + start;
         node->len = index - start - 1;
         break;
@@ -1580,7 +1568,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     default: {
       uint32_t start = index - 1;
       if (EKON_LIKELY(ekonConsumeNum(s, &index))) {
-        node->type = EKONTYPENUMBER;
+        node->type = EKON_TYPE_NUMBER;
         node->value.str = s + start;
         node->len = index - start;
         break;
@@ -1615,10 +1603,11 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
       } else {
         char c = ekonPeek(s, &index);
 
-        if (EKON_LIKELY((EKON_LIKELY(c == '}') &&
-                         EKON_LIKELY(node->father->type == EKONTYPEOBJECT))) ||
+        if (EKON_LIKELY(
+                (EKON_LIKELY(c == '}') &&
+                 EKON_LIKELY(node->father->type == EKON_TYPE_OBJECT))) ||
             EKON_LIKELY(EKON_LIKELY(c == ']') &&
-                        EKON_LIKELY(node->father->type == EKONTYPEARRAY))) {
+                        EKON_LIKELY(node->father->type == EKON_TYPE_ARRAY))) {
 
           node->next = 0;
           node = node->father;
@@ -1671,7 +1660,7 @@ static inline const char *ekonValueStringify(const struct EkonValue *v) {
   struct EkonNode *node = v->n;
 
   switch (node->type) {
-  case EKONTYPEARRAY: {
+  case EKON_TYPE_ARRAY: {
     if (EKON_UNLIKELY(ekonStringAppendChar(str, '[') == false))
       return 0;
     if (node->value.node != 0)
@@ -1682,9 +1671,10 @@ static inline const char *ekonValueStringify(const struct EkonValue *v) {
     }
     break;
   }
-  case EKONTYPEOBJECT: {
+  case EKON_TYPE_OBJECT: {
     if (EKON_UNLIKELY(ekonStringAppendChar(str, '{') == false))
       return 0;
+
     if (node->len != 0)
       node = node->value.node;
     else {
@@ -1693,7 +1683,7 @@ static inline const char *ekonValueStringify(const struct EkonValue *v) {
     }
     break;
   }
-  case EKONTYPESTRING: {
+  case EKON_TYPE_STRING: {
     if (EKON_UNLIKELY(ekonStringAppendChar(str, '"') == false))
       return 0;
     if (EKON_UNLIKELY(ekonStringAppendStr(str, node->value.str, node->len) ==
@@ -1703,11 +1693,12 @@ static inline const char *ekonValueStringify(const struct EkonValue *v) {
       return 0;
     break;
   }
-  default:
+  default: {
     if (EKON_UNLIKELY(ekonStringAppendStr(str, node->value.str, node->len) ==
                       false))
       return 0;
     break;
+  }
   }
 
   while (EKON_LIKELY(node != v->n)) {
@@ -1721,7 +1712,7 @@ static inline const char *ekonValueStringify(const struct EkonValue *v) {
         return 0;
     }
     switch (node->type) {
-    case EKONTYPEARRAY: {
+    case EKON_TYPE_ARRAY: {
       if (EKON_UNLIKELY(ekonStringAppendChar(str, '[') == false))
         return 0;
       if (node->value.node != 0) {
@@ -1733,7 +1724,7 @@ static inline const char *ekonValueStringify(const struct EkonValue *v) {
       }
       break;
     }
-    case EKONTYPEOBJECT: {
+    case EKON_TYPE_OBJECT: {
       if (EKON_UNLIKELY(ekonStringAppendChar(str, '{') == false))
         return 0;
       if (node->len != 0) {
@@ -1745,7 +1736,7 @@ static inline const char *ekonValueStringify(const struct EkonValue *v) {
       }
       break;
     }
-    case EKONTYPESTRING: {
+    case EKON_TYPE_STRING: {
       if (EKON_UNLIKELY(ekonStringAppendChar(str, '"') == false))
         return 0;
       if (EKON_UNLIKELY(ekonStringAppendStr(str, node->value.str, node->len) ==
@@ -1753,6 +1744,7 @@ static inline const char *ekonValueStringify(const struct EkonValue *v) {
         return 0;
       if (EKON_UNLIKELY(ekonStringAppendChar(str, '"') == false))
         return 0;
+      break;
     }
     default: {
       if (EKON_UNLIKELY(ekonStringAppendStr(str, node->value.str, node->len) ==
@@ -1761,15 +1753,16 @@ static inline const char *ekonValueStringify(const struct EkonValue *v) {
       break;
     }
     }
+
     while (EKON_LIKELY(node != v->n)) {
-      if (EKON_LIKELY(node != v->n)) {
+      if (EKON_LIKELY(node->next != 0)) {
         if (EKON_UNLIKELY(ekonStringAppendChar(str, ',') == false))
           return 0;
         node = node->next;
         break;
       } else {
         node = node->father;
-        if (node->type == EKONTYPEARRAY) {
+        if (node->type == EKON_TYPE_ARRAY) {
           if (EKON_UNLIKELY(ekonStringAppendChar(str, ']') == false))
             return 0;
         } else {
@@ -1791,7 +1784,7 @@ static inline const char *ekonValueGetStrFast(const struct EkonValue *v,
                                               uint32_t *len) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPESTRING))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_STRING))
     return 0;
   *len = v->n->len;
   return v->n->value.str;
@@ -1801,7 +1794,7 @@ static inline const char *ekonValueGetStrFast(const struct EkonValue *v,
 static inline const char *ekonValueGetStr(struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPESTRING))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_STRING))
     return 0;
   char *str = ekonAllocatorAlloc(v->a, v->n->len + 1);
   if (EKON_UNLIKELY(str == 0))
@@ -1815,7 +1808,7 @@ static inline const char *ekonValueGetStr(struct EkonValue *v) {
 static inline const char *ekonValueGetUnEspaceStr(struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPESTRING))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_STRING))
     return 0;
 
   char *retStr = ekonAllocatorAlloc(v->a, v->n->len + 1);
@@ -1830,7 +1823,7 @@ static inline const char *ekonValueGetNumFast(const struct EkonValue *v,
                                               uint32_t *len) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPENUMBER))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_NUMBER))
     return 0;
   *len = v->n->len;
   return v->n->value.str;
@@ -1840,7 +1833,7 @@ static inline const char *ekonValueGetNumFast(const struct EkonValue *v,
 static inline const char *ekonValueGetNumStr(struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPENUMBER))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_NUMBER))
     return 0;
   char *str = ekonAllocatorAlloc(v->a, v->n->len + 1);
   if (EKON_UNLIKELY(str == 0))
@@ -1859,7 +1852,7 @@ static inline const double *ekonValueGetNum(struct EkonValue *v) {
 static inline const double *ekonValueGetDouble(struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPENUMBER))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_NUMBER))
     return 0;
   double *d = (double *)ekonAllocatorAlloc(v->a, sizeof(double));
   if (EKON_UNLIKELY(d == 0))
@@ -1872,7 +1865,7 @@ static inline const double *ekonValueGetDouble(struct EkonValue *v) {
 static inline const int *ekonValueGetInt(struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPENUMBER))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_NUMBER))
     return 0;
   int *i = (int *)ekonAllocatorAlloc(v->a, sizeof(int));
   if (EKON_UNLIKELY(i == 0))
@@ -1885,7 +1878,7 @@ static inline const int *ekonValueGetInt(struct EkonValue *v) {
 static inline const long *ekonValueGetLong(struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPENUMBER))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_NUMBER))
     return 0;
   long *i = (long *)ekonAllocatorAlloc(v->a, sizeof(long));
   if (EKON_UNLIKELY(i == 0))
@@ -1898,7 +1891,7 @@ static inline const long *ekonValueGetLong(struct EkonValue *v) {
 static inline const long long *ekonValueGetLongLong(struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPENUMBER))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_NUMBER))
     return 0;
   long long *i = (long long *)ekonAllocatorAlloc(v->a, sizeof(long long));
   if (EKON_UNLIKELY(i == 0))
@@ -1911,7 +1904,7 @@ static inline const long long *ekonValueGetLongLong(struct EkonValue *v) {
 static inline const bool *ekonValueGetBool(const struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPEBOOL))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_BOOL))
     return 0;
   bool *val = (bool *)malloc(1);
   *val = false;
@@ -1924,7 +1917,7 @@ static inline const bool *ekonValueGetBool(const struct EkonValue *v) {
 static inline bool ekonValueIsNull(const struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPENULL))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_NULL))
     return false;
   return true;
 }
@@ -1972,7 +1965,7 @@ static inline struct EkonValue *ekonValueObjGet(const struct EkonValue *v,
                                                 const char *key) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPEOBJECT))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_OBJECT))
     return 0;
   struct EkonNode *next = v->n->value.node;
   while (EKON_LIKELY(next != 0)) {
@@ -1990,7 +1983,7 @@ static inline struct EkonValue *
 ekonValueObjGetLen(const struct EkonValue *v, const char *key, uint32_t len) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPEOBJECT))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_OBJECT))
     return 0;
   struct EkonNode *next = v->n->value.node;
   while (EKON_LIKELY(next != 0)) {
@@ -2006,29 +1999,15 @@ ekonValueObjGetLen(const struct EkonValue *v, const char *key, uint32_t len) {
 static inline const EkonType *ekonValueType(const struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  switch (v->n->type) {
-  case EKONTYPEARRAY:
-    return &EkonTypeArray;
-  case EKONTYPEOBJECT:
-    return &EkonTypeObject;
-  case EKONTYPESTRING:
-    return &EkonTypeString;
-  case EKONTYPENUMBER:
-    return &EkonTypeNumber;
-  case EKONTYPEBOOL:
-    return &EkonTypeBool;
-  case EKONTYPENULL:
-    return &EkonTypeNull;
-  }
-  return 0;
+  return &v->n->type;
 }
 
 // Get the size of the EKON Value
 static inline uint32_t ekonValueSize(const struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPEOBJECT &&
-                    v->n->type != EKONTYPEARRAY))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_OBJECT &&
+                    v->n->type != EKON_TYPE_ARRAY))
     return 0;
   return v->n->len;
 }
@@ -2038,7 +2017,7 @@ static inline struct EkonValue *ekonValueArrayGet(const struct EkonValue *v,
                                                   uint32_t index) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPEARRAY))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_ARRAY))
     return 0;
   struct EkonNode *next = v->n->value.node;
   uint32_t i = 0;
@@ -2057,9 +2036,10 @@ static inline struct EkonValue *ekonValueArrayGet(const struct EkonValue *v,
 static inline struct EkonValue *ekonValueBegin(const struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPEOBJECT &&
-                    v->n->type != EKONTYPEARRAY))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_OBJECT &&
+                    v->n->type != EKON_TYPE_ARRAY))
     return 0;
+
   if (EKON_UNLIKELY(v->n->value.node != 0)) {
     struct EkonValue *retVal = ekonValueInnerNew(v->a, v->n->value.node);
     return retVal;
@@ -2107,8 +2087,8 @@ static inline bool ekonValueCopyFrom(struct EkonValue *v,
       desNode->key = 0;
 
     switch (node->type) {
-    case EKONTYPEOBJECT:
-    case EKONTYPEARRAY: {
+    case EKON_TYPE_OBJECT:
+    case EKON_TYPE_ARRAY: {
       desNode->len = node->len;
       if (EKON_LIKELY(node->value.node != 0)) {
         node = node->value.node;
@@ -2127,14 +2107,14 @@ static inline bool ekonValueCopyFrom(struct EkonValue *v,
       desNode->end = 0;
       break;
     }
-    case EKONTYPEBOOL:
-    case EKONTYPENULL: {
+    case EKON_TYPE_BOOL:
+    case EKON_TYPE_NULL: {
       desNode->value.str = node->value.str;
       desNode->len = node->len;
       break;
     }
-    case EKONTYPENUMBER:
-    case EKONTYPESTRING: {
+    case EKON_TYPE_NUMBER:
+    case EKON_TYPE_STRING: {
       char *s = ekonAllocatorAlloc(a, node->len);
       if (EKON_UNLIKELY(s == 0))
         return false;
@@ -2198,7 +2178,7 @@ static inline bool ekonValueMove(struct EkonValue *v) {
     --(v->n->father->len);
     v->n->father = 0;
   }
-  return false;
+  return true;
 }
 
 // set a value to null
@@ -2212,7 +2192,7 @@ static inline bool ekonValueSetNull(struct EkonValue *v) {
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPENULL;
+  v->n->type = EKON_TYPE_NULL;
   v->n->value.str = ekonStrNull;
   v->n->len = 4;
   return true;
@@ -2229,7 +2209,7 @@ static inline bool ekonValueSetBool(struct EkonValue *v, bool b) {
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPEBOOL;
+  v->n->type = EKON_TYPE_BOOL;
   if (b == false) {
     v->n->value.str = ekonStrFalse;
     v->n->len = 5;
@@ -2255,7 +2235,7 @@ static inline bool ekonValueSetNumStrFast(struct EkonValue *v,
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPENUMBER;
+  v->n->type = EKON_TYPE_NUMBER;
   v->n->value.str = num;
   v->n->len = len;
   return true;
@@ -2275,7 +2255,7 @@ static inline bool ekonValueSetNumStrLenFast(struct EkonValue *v,
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPENUMBER;
+  v->n->type = EKON_TYPE_NUMBER;
   v->n->value.str = num;
   v->n->len = len;
   return true;
@@ -2299,7 +2279,7 @@ static inline bool ekonValueSetNumStr(struct EkonValue *v, const char *num) {
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPENUMBER;
+  v->n->type = EKON_TYPE_NUMBER;
   v->n->value.str = s;
   v->n->len = len;
   return true;
@@ -2323,7 +2303,7 @@ static inline bool ekonValueSetNumStrLen(struct EkonValue *v, const char *num,
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPENUMBER;
+  v->n->type = EKON_TYPE_NUMBER;
   v->n->value.str = s;
   v->n->len = len;
   return true;
@@ -2349,7 +2329,7 @@ static inline bool ekonValueSetDouble(struct EkonValue *v, const double d) {
     v->n->next = 0;
     v->n->father = 0;
   }
-  v->n->type = EKONTYPENUMBER;
+  v->n->type = EKON_TYPE_NUMBER;
   v->n->value.str = num;
   v->n->len = len;
   return true;
@@ -2370,7 +2350,7 @@ static inline bool ekonValueSetInt(struct EkonValue *v, const int n) {
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPENUMBER;
+  v->n->type = EKON_TYPE_NUMBER;
   v->n->value.str = num;
   v->n->len = len;
   return true;
@@ -2391,7 +2371,7 @@ static inline bool ekonValueSetLong(struct EkonValue *v, const long n) {
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPENUMBER;
+  v->n->type = EKON_TYPE_NUMBER;
   v->n->value.str = num;
   v->n->len = len;
   return true;
@@ -2413,7 +2393,7 @@ static inline bool ekonValueSetLongLong(struct EkonValue *v,
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPENUMBER;
+  v->n->type = EKON_TYPE_NUMBER;
   v->n->value.str = num;
   v->n->len = len;
   return true;
@@ -2450,7 +2430,7 @@ static inline bool ekonValueSetStrFast(struct EkonValue *v, const char *str) {
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPESTRING;
+  v->n->type = EKON_TYPE_STRING;
   v->n->value.str = str;
   v->n->len = len;
   return true;
@@ -2471,7 +2451,7 @@ static inline bool ekonValueSetStrLenFast(struct EkonValue *v, const char *str,
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPESTRING;
+  v->n->type = EKON_TYPE_STRING;
   v->n->value.str = str;
   v->n->len = len;
   return true;
@@ -2488,7 +2468,7 @@ static inline bool ekonValueSetStr(struct EkonValue *v, const char *str) {
   ekonCopy(str, len, s);
   if (EKON_UNLIKELY(v->n == 0)) {
   }
-  v->n->type = EKONTYPESTRING;
+  v->n->type = EKON_TYPE_STRING;
   v->n->value.str = s;
   v->n->len = len;
   return true;
@@ -2513,7 +2493,7 @@ static inline bool ekonValueSetStrLen(struct EkonValue *v, const char *str,
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPESTRING;
+  v->n->type = EKON_TYPE_STRING;
   v->n->value.str = s;
   v->n->len = len;
   return true;
@@ -2549,11 +2529,11 @@ static inline bool ekonValueSetKeyFast(struct EkonValue *v, const char *key) {
     v->n->prev = 0;
     v->n->father = 0;
     v->n->next = 0;
-    v->n->type = EKONTYPENULL;
+    v->n->type = EKON_TYPE_NULL;
     v->n->value.str = ekonStrNull;
     v->n->len = 4;
   } else if (v->n->father != 0 &&
-             EKON_UNLIKELY(v->n->father->type != EKONTYPEOBJECT))
+             EKON_UNLIKELY(v->n->father->type != EKON_TYPE_OBJECT))
     return false;
 
   v->n->key = key;
@@ -2573,11 +2553,11 @@ static inline bool ekonValueSetKeyLenFast(struct EkonValue *v, const char *key,
     v->n->prev = 0;
     v->n->father = 0;
     v->n->next = 0;
-    v->n->type = EKONTYPENULL;
+    v->n->type = EKON_TYPE_NULL;
     v->n->value.str = ekonStrNull;
     v->n->len = 4;
   } else if (v->n->father != 0 &&
-             EKON_UNLIKELY(v->n->father->type != EKONTYPEOBJECT))
+             EKON_UNLIKELY(v->n->father->type != EKON_TYPE_OBJECT))
     return false;
   v->n->key = key;
   v->n->keyLen = len;
@@ -2597,11 +2577,11 @@ static inline bool ekonValueSetKey(struct EkonValue *v, const char *key) {
     v->n->prev = 0;
     v->n->father = 0;
     v->n->next = 0;
-    v->n->type = EKONTYPENULL;
+    v->n->type = EKON_TYPE_NULL;
     v->n->value.str = ekonStrNull;
     v->n->len = 4;
   } else if (v->n->father != 0 &&
-             EKON_UNLIKELY(v->n->father->type != EKONTYPEOBJECT))
+             EKON_UNLIKELY(v->n->father->type != EKON_TYPE_OBJECT))
     return false;
 
   char *s = ekonAllocatorAlloc(v->a, len);
@@ -2626,11 +2606,11 @@ static inline bool ekonValueSetKeyLen(struct EkonValue *v, const char *key,
     v->n->prev = 0;
     v->n->father = 0;
     v->n->next = 0;
-    v->n->type = EKONTYPENULL;
+    v->n->type = EKON_TYPE_NULL;
     v->n->value.str = ekonStrNull;
     v->n->len = 4;
   } else if (v->n->father != 0 &&
-             EKON_UNLIKELY(v->n->father->type != EKONTYPEOBJECT))
+             EKON_UNLIKELY(v->n->father->type != EKON_TYPE_OBJECT))
     return false;
 
   char *s = ekonAllocatorAlloc(v->a, len);
@@ -2653,7 +2633,7 @@ static inline bool ekonValueSetArray(struct EkonValue *v) {
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPEARRAY;
+  v->n->type = EKON_TYPE_ARRAY;
   v->n->value.node = 0;
   v->n->len = 0;
   return true;
@@ -2670,7 +2650,7 @@ static inline bool ekonValueSetObj(struct EkonValue *v) {
     v->n->father = 0;
     v->n->next = 0;
   }
-  v->n->type = EKONTYPEOBJECT;
+  v->n->type = EKON_TYPE_OBJECT;
   v->n->value.node = 0;
   v->n->len = 0;
   return true;
@@ -2692,7 +2672,7 @@ static inline bool ekonValueSetFast(struct EkonValue *v, struct EkonValue *vv) {
   }
   v->n->value = vv->n->value;
   v->n->len = vv->n->len;
-  if (v->n->type == EKONTYPEARRAY || v->n->type == EKONTYPEOBJECT) {
+  if (v->n->type == EKON_TYPE_ARRAY || v->n->type == EKON_TYPE_OBJECT) {
     v->n->end = vv->n->end;
     struct EkonNode *next = v->n->value.node;
     while (EKON_LIKELY(next != 0)) {
@@ -2721,7 +2701,7 @@ static inline bool ekonValueSet(struct EkonValue *v,
   }
   v->n->value = cp->n->value;
   v->n->len = cp->n->len;
-  if (v->n->type == EKONTYPEARRAY || v->n->type == EKONTYPEOBJECT) {
+  if (v->n->type == EKON_TYPE_ARRAY || v->n->type == EKON_TYPE_OBJECT) {
     v->n->end = vv->n->end;
     struct EkonNode *next = v->n->value.node;
     while (EKON_LIKELY(next != 0)) {
@@ -2737,7 +2717,7 @@ static inline bool ekonValueObjAddFast(struct EkonValue *v,
                                        struct EkonValue *vv) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPEOBJECT))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_OBJECT))
     return false;
   if (EKON_UNLIKELY(vv->n == 0))
     return false;
@@ -2765,7 +2745,7 @@ static inline bool ekonValueObjAdd(struct EkonValue *v,
                                    const struct EkonValue *vv) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPEOBJECT))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_OBJECT))
     return false;
   if (EKON_UNLIKELY(vv->n == 0))
     return false;
@@ -2793,7 +2773,7 @@ static inline bool ekonValueArrayAddFast(struct EkonValue *v,
                                          struct EkonValue *vv) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPEARRAY))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_ARRAY))
     return false;
   if (EKON_UNLIKELY(ekonValueMove(vv) == false))
     return false;
@@ -2818,7 +2798,7 @@ static inline bool ekonValueArrayAdd(struct EkonValue *v,
                                      const struct EkonValue *vv) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
-  if (EKON_UNLIKELY(v->n->type != EKONTYPEARRAY))
+  if (EKON_UNLIKELY(v->n->type != EKON_TYPE_ARRAY))
     return false;
   struct EkonValue *cp = ekonValueCopy(vv);
   if (EKON_UNLIKELY(cp == 0))

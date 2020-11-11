@@ -10,6 +10,7 @@ EKON is a sane alternative for JSON that is geared towards readability and compr
 - [EKON - Ek Object Notation](#ekon---ek-object-notation)
 - [README Contents](#readme-contents)
 - [Features](#features)
+- [Installation](#installation)
 - [Syntax & Specification](#syntax-&-specification)
 - [Schema Support](#schema-support)
 - [Language Support](#language-support)
@@ -28,28 +29,52 @@ EKON is a sane alternative for JSON that is geared towards readability and compr
 - **Optional Commas** not only saves you keystrokes and filesize, but also improves readibility
 - **Optional Root Object Curly Braces** also helps improve readibility
 
+## Installation:
+
+For Windows {Through Scoop only (To avoid multiple binaries)}:
+```sh
+TODO!
+```
+For Linux:
+```sh
+TODO!
+```
+For MAC:
+```sh
+TODO!
+```
+To compile from source, check: [Compiling from Source](#compiling-repo)
+
 ## Syntax & Specification:
 
-Remember EKON is fully compatible with JSON and [JSON5](https://json5.org). Here is the whole specification of EKON at one glance from [specs.ekon](./specs.ekon).
+EKON is fully compatible with [JSON](https://json.org) and [JSON5](https://json5.org). Here is the whole specification of EKON at one glance from [specs.ekon](./specs.ekon).
 
 ```javascript
 /// specs.d.ek // or specs.d.ts // definition file for the current EKON file.
 // { // If the global (root) structure is an object/map, you can ignore writing '{' (optional)
 
 // single line comments only
-// you can skip writing the commas (optional)
 
-// null
-nullValue: null
+// -- null
+nullValue: null  // Yeah! commas are finally optional
 
-// strings
+// -- strings
+
+// Unquoted Strings are simple one word strings & have a few conditions:
+//  1. No ':', '{', '}', "'", '"', '[',  ']', ',' or whitespace characters
+//  2. Reserved words: 'true', 'false', 'null' won't be parsed as string
+//  3. If its a number, it will be parsed as a number & not as string 
+unquoted: forSimpleOneWordStrings
+
+// for full support of the above characters, use the following three forms
 doubleQuotes: "You can use 'single-quotes' inside"
 singleQuotes: 'You can use "double-quotes" inside'
-multilineStrings: `
+multilineWithBacktickQuote: `
 This is
 a multiline
 string
 `
+'singleQuotedKey': 'Although, it is encouraged to use unquoted keys'
 
 // numbers
 intNumber: 123
@@ -89,13 +114,31 @@ objectMap: {
     "key": "value"
 }
 
-// Compressed form
-stringVal:'h'arrayVal:[1,2,3,4]numVal:1.1 obj:{k: 'v'}multiline:"hi\nthere\n"
+// Compressed form - yeah! unlike YAML, whitespace is insignificant in EKON files
+stringVal:h arrayVal:[1,2,3,4]numVal:1.1 obj:{k:v}multiline:"hi\nthere\n"
 
 // } - // As said before. If root structure is an object/map, `{}` is optional.
 
 // Root Array must require `[]` though
 ```
+
+## Style Guide:
+
+Try to adher to these rules while writing proper `EKON` based configs:
+These don't matter for minified form. `Formatter` & `Minifier` APIs
+will soon be available (TODO!).
+
+1. Use unquoted strings as key
+2. Use unquoted strings as values whenever possible
+3. Use single quotes over double quotes whenever possible for values
+4. Try your best to avoid commas, looks clean
+5. Use 80 as the maximum line length. For under 80 chars lines:
+    a. Arrays should be put into single line for under 80 chars lines 
+    b. Objects should have put into single line with commas for under 80 chars lines
+6. For nested data structures, prepend at least 2 whitespace. No rule beyond that.
+    EKON is anyways whitespace agnostic.
+
+
 
 
 ## Schema Support
@@ -112,7 +155,7 @@ is not complete. Specification for this is the TypeScript type specs:
 
 If the root object 
 ```typescript
-/// {
+/// root = {
 /// key: string,
 /// ...
 /// }

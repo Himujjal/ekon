@@ -5,106 +5,102 @@
 void getAndSet(Value *src, Value *des) {
   // Set EKON Type
   const EkonType *t;
-  t = Type(src);
+  t = ekonValueType(src);
   if (t == 0)
     return;
 
   switch (*t) {
-  case EKONTYPEARRAY: {
-    SetArray(des);
-    Value *next = Begin(src);
+  case EKON_TYPE_ARRAY: {
+    ekonValueSetArray(des);
+    struct EkonValue *next = ekonValueBegin(src);
     while (next != 0) {
-      Value *v = NewValue(des->a);
+      struct EkonValue *v = ekonValueNew(des->a);
       getAndSet(next, v);
-      if (ArrayAddFast(des, v) != true)
+      if (ekonValueArrayAddFast(des, v) != true) {
         return;
-      next = Next(next);
+      }
+      next = ekonValueNext(next);
     }
     break;
   }
-  case EKONTYPEOBJECT: {
-    // For Object Type
-    SetObj(des);
-    Value *next = Begin(src);
+  case EKON_TYPE_OBJECT: {
+    ekonValueSetObj(des);
+    Value *next = ekonValueBegin(src);
     while (next != 0) {
-      Value *v = NewValue(des->a);
-      SetKeyFast(v, GetKey(next));
+      Value *v = ekonValueNew(des->a);
+      ekonValueSetKeyFast(v, ekonValueGetKey(next));
       getAndSet(next, v);
-      if (ObjAddFast(des, v) != true)
+      if (ekonValueObjAddFast(des, v) != true)
         return;
-      next = Next(next);
+      next = ekonValueNext(next);
     }
     break;
   }
-  case EKONTYPEBOOL: {
-    const bool *b = GetBool(src);
+  case EKON_TYPE_BOOL: {
+    const bool *b = ekonValueGetBool(src);
     if (b == 0)
       return;
-    SetBool(des, *b);
+    ekonValueSetBool(des, *b);
     break;
   }
-  case EKONTYPENUMBER: {
-    const char *str = GetNumStr(src);
+  case EKON_TYPE_NUMBER: {
+    const char *str = ekonValueGetNumStr(src);
     if (str == 0)
       return;
-    if (SetNumStr(des, str) != true)
+    if (ekonValueSetNumStr(des, str) != true)
       return;
     break;
   }
-  case EKONTYPENULL: {
-    if (IsNull(src) == false)
+  case EKON_TYPE_NULL: {
+    if (ekonValueIsNull(src) == false)
       return;
-    SetNull(des);
+    ekonValueSetNull(des);
     break;
   }
-  case EKONTYPESTRING: {
-    // if the type is a string
-    const char *str = GetStr(src);
+  case EKON_TYPE_STRING: {
+    const char *str = ekonValueGetStr(src);
     if (str == 0)
       return;
-    if (SetStrFast(des, str) != true)
+    if (!ekonValueSetStrFast(des, str)) {
       return;
+    }
     break;
   }
   }
 }
 
 bool EKON_Parse(Value *srcV, const char *srcEkon) {
-  return ParseFast(srcV, srcEkon);
+  return ekonValueParseFast(srcV, srcEkon);
 }
 
 int main() {
-  const char *srcEkon = "[{\"key\":\"value\"}]";
-
-  /* const char *srcEkon =
-   * "[{\"key\":true},false,{\"key1\":true},[null,false,[]," */
-  /*                       "true],[\"\",123,\"str\"],null]"; */
+  const char *srcEkon = "[{\"key\":\"value\", \"i\": 1, \"yo\": { \"hi\": null }}, true,false, null, [{\"hello\": 1}],\"hello\"]";
 
   // Allocate new chunk of memory
-  Allocator *a = NewAllocator();
+  Allocator *a = ekonAllocatorNew();
 
   // Add a new value
-  Value *srcV = NewValue(a);
-  Value *desV = NewValue(a);
+  Value *srcV = ekonValueNew(a);
+  Value *desV = ekonValueNew(a);
 
   // ... EKON ..
   bool ret = EKON_Parse(srcV, srcEkon);
+
   if (!ret) {
-    printf("ParseFast failed\n");
+    printf("Parse-Fast Failed\n");
     return 1;
   }
+
+  printf("srcEkon Stringified: %s\n", ekonValueStringify(srcV));
 
   // Get and Set EKON
   getAndSet(srcV, desV);
 
-  const char *desEkon = Stringify(desV);
-
-  printf("srcEkon: \n\t%s", srcEkon);
-  if (desEkon != 0)
-    printf("desEkon:%s\n", desEkon);
+  // DesEkon
+  printf("desEkon Stringified: %s\n", ekonValueStringify(desV));
 
   // ReleaseAllocator
-  ReleaseAllocator(a);
+  ekonAllocatorRelease(a);
 
   return 0;
 }

@@ -74,7 +74,12 @@ bool EKON_Parse(Value *srcV, const char *srcEkon) {
 }
 
 int main() {
-  const char *srcEkon = "[{\"key\":\"value\", \"i\": 1, \"yo\": { \"hi\": null }}, true,false, null, [{\"hello\": 1}],\"hello\"]";
+  /* const char *srcEkon = "[{\"key\":\"value\",  \"i\": " */
+  /*                       "1, \"yo\": { \"hi\": null " */
+  /*                       "// this is a comment \n" */
+  /*                       "}}, true,false, null, [{\"hello\":
+   * 1}],\"hello\"]\n"; */
+  const char *srcEkon = "// this is a comment";
 
   // Allocate new chunk of memory
   Allocator *a = ekonAllocatorNew();

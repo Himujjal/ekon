@@ -51,9 +51,10 @@ EKON is fully compatible with [JSON](https://json.org) and [JSON5](https://json5
 
 ```javascript
 /// specs.d.ek // or specs.d.ts // definition file for the current EKON file.
-// { // If the global (root) structure is an object/map, you can ignore writing '{' (optional)
+// { // If the global (root) structure is an object/map, ignore '{' (optional)
 
 // single line comments only
+// keyValues can be without quotes
 
 // -- null
 nullValue: null  // Yeah! commas are finally optional
@@ -61,28 +62,31 @@ nullValue: null  // Yeah! commas are finally optional
 // -- strings
 
 // Unquoted Strings are simple one word strings & have a few conditions:
-//  1. No ':', '{', '}', "'", '"', '[',  ']', ',' or whitespace characters
-//  2. Reserved words: 'true', 'false', 'null' won't be parsed as string
-//  3. If its a number, it will be parsed as a number & not as string 
-unquoted: forSimpleOneWordStrings
+//  1. No WhiteSpace characters
+//  2. Only characters allowed will be '_' , '-', '@', '.' 
+//  3. No "//" will be parsed as string. It will be parsed as comments
+//  4. No Reserved words: 'true', 'false', 'null' will be parsed as string
+//  5. If its a number, it will be parsed as a number & not as string 
+unquotedKey: forSimpleOneWordStrings
+unquotedKey2: john_doe@gmail.com // TIP: Prefer single-quotes for URLs ("'<URL>'")
 
 // for full support of the above characters, use the following three forms
-doubleQuotes: "You can use 'single-quotes' inside"
+doubleQuotes: "You can use 'single-quotes' inside" // prefer single-quotes though
 singleQuotes: 'You can use "double-quotes" inside'
 multilineWithBacktickQuote: `
 This is
 a multiline
 string
 `
-'singleQuotedKey': 'Although, it is encouraged to use unquoted keys'
+'single QuotedKey': 'Prefer single-quotes over double-quotes for keys'
 
 // numbers
 intNumber: 123
 floatingPointNumber: -0.12345
-leadingDecimalPointNumber: .12345
-trailingDecimlPointNumber: 12345.
 positiveSignNumber: +12345.123
 hexadecimalNumber: 0xdecaf
+
+trailingDecimal: -.123
 
 // Arrays
 arrays: [
@@ -115,7 +119,9 @@ objectMap: {
 }
 
 // Compressed form - yeah! unlike YAML, whitespace is insignificant in EKON files
-stringVal:h arrayVal:[1,2,3,4]numVal:1.1 obj:{k:v}multiline:"hi\nthere\n"
+// compare the minified JSON and EKON. EKON will be always smaller
+stringVal:h arrayVal:[1,2,3,4]numVal:-.1 obj:{k:v}multiline:"hi\nthere\n"
+"stringVal":"h","arrayVal":[1,2,3,4],"numVal":-0.1,"obj":{"k":"v"},"multiline":"hi\nthere\n"
 
 // } - // As said before. If root structure is an object/map, `{}` is optional.
 
@@ -128,17 +134,16 @@ Try to adher to these rules while writing proper `EKON` based configs:
 These don't matter for minified form. `Formatter` & `Minifier` APIs
 will soon be available (TODO!).
 
-1. Use unquoted strings as key
-2. Use unquoted strings as values whenever possible
-3. Use single quotes over double quotes whenever possible for values
+1. Prefer unquoted strings as key
+2. Prefer unquoted strings as values whenever possible
+3. Use single quotes over double quotes whenever possible for values & keys
 4. Try your best to avoid commas, looks clean
 5. Use 80 as the maximum line length. For under 80 chars lines:
     a. Arrays should be put into single line for under 80 chars lines 
-    b. Objects should have put into single line with commas for under 80 chars lines
-6. For nested data structures, prepend at least 2 whitespace. No rule beyond that.
+    b. Objects should have put into single line "with commas" for under 80 chars lines
+6. For nested data structures, prefer prepending at least 2 whitespace. No rule beyond that.
     EKON is anyways whitespace agnostic.
-
-
+7. Prefer `0` for decimal based numbers whenever possible 
 
 
 ## Schema Support

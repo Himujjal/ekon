@@ -81,7 +81,7 @@ static inline void ekonFree(void *ptr) { freeMemoryCount += 1, free(ptr); }
 struct EkonAllocator;
 struct EkonValue;
 
-// Short API
+// Long API
 static inline struct EkonAllocator *ekonAllocatorNew();
 static inline void ekonAllocatorRelease(struct EkonAllocator *rootAlloc);
 static inline struct EkonValue *ekonValueNew(struct EkonAllocator *alloc);
@@ -194,6 +194,9 @@ static inline bool ekonValueArrayAdd(struct EkonValue *v,
 static inline bool ekonValueArrayDel(struct EkonValue *v, uint32_t index);
 
 static inline bool ekonValueObjDel(struct EkonValue *v, const char *key);
+
+static inline bool ekonCheckIfComment(const char *str, uint32_t index);
+static inline bool ekonParseTillCommentEnd(const char *str, uint32_t *index);
 
 // ...
 #ifndef EKON_SHORT_API
@@ -691,7 +694,8 @@ static inline bool ekonConsumeFalse(const char *s, uint32_t *index) {
 
 // consume 'true' string
 static inline bool ekonConsumeTrue(const char *s, uint32_t *index) {
-  if (EKON_LIKELY(*((uint32_t *)ekonStrTrue) == *((uint32_t *)(s + *index - 1)))) {
+  if (EKON_LIKELY(*((uint32_t *)ekonStrTrue) ==
+                  *((uint32_t *)(s + *index - 1)))) {
     *index += 3;
     return true;
   }
@@ -892,18 +896,14 @@ struct EkonEscapeChar {
 static const struct EkonEscapeChar ekonEscapeChars[256] = {
     {"\\u0000", 6}, {"\\u0001", 6}, {"\\u0002", 6}, {"\\u0003", 6},
     {"\\u0004", 6}, {"\\u0005", 6}, {"\\u0006", 6}, {"\\u0007", 6},
-
     {"\\b", 2},     {"\\t", 2},     {"\\n", 2},     {"\\u000b", 6},
     {"\\f", 2},     {"\\r", 2},     {"\\u000e", 6}, {"\\u000f", 6},
-
     {"\\u0010", 6}, {"\\u0011", 6}, {"\\u0012", 6}, {"\\u0013", 6},
     {"\\u0014", 6}, {"\\u0015", 6}, {"\\u0016", 6}, {"\\u0017", 6},
     {"\\u0018", 6}, {"\\u0019", 6}, {"\\u001a", 6}, {"\\u001b", 6},
     {"\\u001c", 6}, {"\\u001d", 6}, {"\\u001e", 6}, {"\\u001f", 6},
-
     {"\x20", 1},    {"\x21", 1},    {"\\\"", 2},    {"\x23", 1},
     {"\x24", 1},    {"\x25", 1},    {"\x26", 1},    {"\x27", 1},
-
     {"\x28", 1},    {"\x29", 1},    {"\x2a", 1},    {"\x2b", 1},
     {"\x2c", 1},    {"\x2d", 1},    {"\x2e", 1},    {"\x2f", 1},
     {"\x30", 1},    {"\x31", 1},    {"\x32", 1},    {"\x33", 1},
@@ -916,10 +916,8 @@ static const struct EkonEscapeChar ekonEscapeChars[256] = {
     {"\x4c", 1},    {"\x4d", 1},    {"\x4e", 1},    {"\x4f", 1},
     {"\x50", 1},    {"\x51", 1},    {"\x52", 1},    {"\x53", 1},
     {"\x54", 1},    {"\x55", 1},    {"\x56", 1},    {"\x57", 1},
-
     {"\x58", 1},    {"\x59", 1},    {"\x5a", 1},    {"\x5b", 1},
     {"\\\\", 2},    {"\x5d", 1},    {"\x5e", 1},    {"\x5f", 1},
-
     {"\x60", 1},    {"\x61", 1},    {"\x62", 1},    {"\x63", 1},
     {"\x64", 1},    {"\x65", 1},    {"\x66", 1},    {"\x67", 1},
     {"\x68", 1},    {"\x69", 1},    {"\x6a", 1},    {"\x6b", 1},

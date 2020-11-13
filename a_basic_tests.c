@@ -1,4 +1,4 @@
-#include "../../ekon.h"
+#include "./ekon.h"
 #include <stdio.h>
 
 // Get the EKON and Set some EKON
@@ -79,7 +79,10 @@ int main() {
   /*                       "// this is a comment \n" */
   /*                       "}}, true,false, null, [{\"hello\":
    * 1}],\"hello\"]\n"; */
-  const char *srcEkon = "// this is a comment";
+  /* const char *srcEkon = "// this is a comment\n[1,2,3]}"; */
+
+  printf("-----\n");
+  const char *srcEkon = "// ab\n[1, //..\n{//..\n \"yo\" //\n : // \n 1 // \n} // \n ]//";
 
   // Allocate new chunk of memory
   Allocator *a = ekonAllocatorNew();

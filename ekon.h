@@ -197,6 +197,7 @@ static inline bool ekonValueObjDel(struct EkonValue *v, const char *key);
 
 static inline bool ekonCheckIfComment(const char *str, uint32_t index);
 static inline bool ekonParseTillCommentEnd(const char *str, uint32_t *index);
+static inline void ekonConsumeComment(const char *str, uint32_t *index);
 
 // ...
 #ifndef EKON_SHORT_API
@@ -623,8 +624,18 @@ static inline bool ekonSkin(const char c) {
   return false;
 }
 
+static inline bool ekonConsume(const char c, const char *s, uint32_t *index);
+
 // peek current character
 static inline char ekonPeek(const char *s, uint32_t *index) {
+  while (EKON_UNLIKELY(ekonSkin(s[*index])))
+    ++(*index);
+  if (ekonConsume('/', s, index)) {
+    if (ekonConsume('/', s, index)) {
+      ekonConsumeComment(s, index);
+    } else
+      return 0;
+  }
   while (EKON_UNLIKELY(ekonSkin(s[*index])))
     ++(*index);
   return s[(*index)++];
@@ -664,6 +675,16 @@ static inline bool ekonLikelyPeekAndConsume(const char c, const char *s,
                                             uint32_t *index) {
   while (EKON_UNLIKELY(ekonSkin(s[*index])))
     ++(*index);
+
+  if (ekonConsume('/', s, index)) {
+    if (EKON_LIKELY(ekonConsume('/', s, index))) {
+      ekonConsumeComment(s, index);
+    } else
+      return 0;
+  }
+  while (EKON_UNLIKELY(ekonSkin(s[*index])))
+    ++(*index);
+
   if (EKON_LIKELY(s[*index] == c)) {
     ++(*index);
     return true;
@@ -676,11 +697,32 @@ static inline bool ekonUnlikelyPeekAndConsume(const char c, const char *s,
                                               uint32_t *index) {
   while (EKON_UNLIKELY(ekonSkin(s[*index])))
     ++(*index);
+  if (ekonConsume('/', s, index)) {
+    if (EKON_LIKELY(ekonConsume('/', s, index))) {
+      ekonConsumeComment(s, index);
+    } else
+      return 0;
+  }
+  while (EKON_UNLIKELY(ekonSkin(s[*index])))
+    ++(*index);
   if (EKON_UNLIKELY(s[*index] == c)) {
     ++(*index);
     return true;
   }
   return false;
+}
+
+// consume a comment
+static inline void ekonConsumeComment(const char *str, uint32_t *index) {
+  char curr = str[(*index)];
+  if (curr == '\n') {
+    (*index)++;
+    return;
+  }
+
+  while (EKON_UNLIKELY(curr != '\n' && curr != '\0')) {
+    curr = str[(*index)++];
+  }
 }
 
 // consume 'false' string
@@ -1258,6 +1300,9 @@ static inline bool ekonCheckNumLen(struct EkonAllocator *alloc, const char *s,
 
 // Value Parse Fast - API
 static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
+  if (EKON_UNLIKELY(s[0] == '\0'))
+    return false;
+
   struct EkonNode *srcNode;
 
   // v->node is empty and v->alloc has pointer to EkonNode

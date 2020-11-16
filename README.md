@@ -175,9 +175,9 @@ if the root object/map is an array:
 Example:
 
 ```typescript
-// specs.d.ek
+// specs.d.ek or specs.d.ts
 
-type ekonSpecs = {
+type root = {
     unquotedKey: string,
     singleQuotes: string,
     multilineStrings: string,
@@ -202,9 +202,12 @@ type ekonSpecs = {
 - [ ] ~~EkScript~~
 - [ ] ~~C++~~
 - [ ] ~~Javascript/TypeScript~~
-- [ ] ~~Rust~~ 
-- [ ] ~~Go~~
+    - [ ] ~~node-ekon (WASM + Native) - performant~~
+    - [ ] ~~ekon.js (Pure JS) - size optimized~~
 - [ ] ~~Python~~
+- [ ] ~~Rust~~
+- [ ] ~~Dart~~
+- [ ] ~~Go~~
 - [ ] ~~PHP~~
 - [ ] ~~Ruby~~
 - [ ] ~~Lua~~
@@ -215,8 +218,10 @@ type ekonSpecs = {
 - [ ] ~~F#~~
 - [ ] ~~Crystal~~
 - [ ] ~~Haskell~~
-- [ ] ~~Erlang~~ 
+- [ ] ~~Erlang~~
 - [ ] ~~Elixir~~
+
+If any language is missing please create a pull request/file an issue.
 
 
 ## IDE Support for `.ekon` files
@@ -225,10 +230,13 @@ type ekonSpecs = {
 - [ ] ~~Vim~~
 - [ ] ~~NeoVim (Lua based)~~
 - [ ] ~~VS Code~~
+- [ ] ~~Visual Studio~~
 - [ ] ~~Micro~~
 - [ ] ~~Atom~~
 - [ ] ~~Sublime~~
 - [ ] ~~Emacs~~
+- [ ] ~~Kate~~
+- [ ] ~~Notepad++~~
 
 # Benchmarks
 
@@ -244,9 +252,23 @@ TODO!
 
 TODO!
 
-## ROADMAP:
+## ROADMAP & TODOs:
 
 - [ ] Nim + C repo: 
+    - [ ] Complete the C library
+        - [x] Support for Comments
+        - [x] Support for single-quote and backtick based strings
+        - [ ] Support for unquoted strings for both keys and values
+        - [ ] Support for trailing and preceding decimal numbers
+        - [ ] Support for positive and negative signs
+        - [ ] Support for optional commas
+        - [ ] Support for optional root curly brackets
+        - [ ] Error handling using a char array
+        - [ ] Stringify to EKON
+        - [ ] Stringify to JSON and strict JSON parsing support
+        - [ ] Beautify support
+        - [ ] Minify support
+        - [ ] `\r\n` support for windows
     - [ ] Write & test the nim code
 - [ ] EKON Language Server
 - [ ] EKON IDE Support

@@ -1,0 +1,7 @@
+# no editor based configs
+.vscode
+
+
+# all executables
+./a_basic_tests
+./ekon

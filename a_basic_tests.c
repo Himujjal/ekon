@@ -1,5 +1,28 @@
 #include "./ekon.h"
 #include <stdio.h>
+#include <string.h>
+
+const char *readFromFile(const char *fileName) {
+  FILE *fp;
+  long lSize;
+  char *buff;
+
+  fp = fopen(fileName, "r");
+  if (!fp)
+    perror(strcat("Couldn't open ", fileName)), exit(1);
+
+  fseek(fp, 0L, SEEK_END);
+  lSize = ftell(fp);
+  rewind(fp);
+
+  // allocate memory
+  buff = calloc(1, lSize + 1);
+  if (1 != fread(buff, lSize, 1, fp))
+    fclose(fp), free(buff), fputs("Entire read fails", stderr), exit(1);
+
+  fclose(fp);
+  return buff;
+}
 
 // Get the EKON and Set some EKON
 void getAndSet(Value *src, Value *des) {
@@ -74,15 +97,8 @@ bool EKON_Parse(Value *srcV, const char *srcEkon) {
 }
 
 int main() {
-  /* const char *srcEkon = "[{\"key\":\"value\",  \"i\": " */
-  /*                       "1, \"yo\": { \"hi\": null " */
-  /*                       "// this is a comment \n" */
-  /*                       "}}, true,false, null, [{\"hello\":
-   * 1}],\"hello\"]\n"; */
-  /* const char *srcEkon = "// this is a comment\n[1,2,3]}"; */
-
   printf("-----\n");
-  const char *srcEkon = "// ab\n[1, //..\n{//..\n \"yo\" //\n : // \n 1 // \n} // \n ]//";
+  const char *srcEkon = readFromFile("specs.ekon");
 
   // Allocate new chunk of memory
   Allocator *a = ekonAllocatorNew();
@@ -99,16 +115,21 @@ int main() {
     return 1;
   }
 
-  printf("srcEkon Stringified: %s\n", ekonValueStringify(srcV));
+  const char *src = ekonValueStringify(srcV);
+  printf("srcEkon Stringified: %s\n", src);
 
   // Get and Set EKON
   getAndSet(srcV, desV);
 
   // DesEkon
-  printf("desEkon Stringified: %s\n", ekonValueStringify(desV));
+  const char *des = ekonValueStringify(desV);
+  printf("desEkon Stringified: %s\n", des);
 
   // ReleaseAllocator
   ekonAllocatorRelease(a);
+  free((void *)srcEkon);
+  /* free((void *)des); */
+  /* free((void *)src); */
 
   return 0;
 }

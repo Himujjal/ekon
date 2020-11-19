@@ -3,5 +3,7 @@
 
 
 # all executables
-./a_basic_tests
-./ekon
+a_basic_tests
+ekon
+unQuotedStringValidity
+main

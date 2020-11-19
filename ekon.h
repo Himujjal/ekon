@@ -86,10 +86,14 @@ static inline struct EkonAllocator *ekonAllocatorNew();
 static inline void ekonAllocatorRelease(struct EkonAllocator *rootAlloc);
 static inline struct EkonValue *ekonValueNew(struct EkonAllocator *alloc);
 
-static inline bool ekonValueParseFast(struct EkonValue *v, const char *s);
+static inline bool ekonError(char *mes, uint32_t line, uint32_t pos, char c);
+static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
+                                      char *err);
+
 static inline bool ekonValueParseLen(struct EkonValue *v, const char *s,
-                                     uint32_t len);
-static inline bool ekonValueParse(struct EkonValue *v, const char *s);
+                                     uint32_t len, char *err);
+static inline bool ekonValueParse(struct EkonValue *v, const char *s,
+                                  char *err);
 
 static inline const char *ekonValueStringify(const struct EkonValue *v);
 
@@ -99,6 +103,7 @@ static inline const char *ekonValueGetStrFast(const struct EkonValue *v,
 static inline const char *ekonValueGetUnEspaceStr(struct EkonValue *v);
 static inline const char *ekonValueGetStr(struct EkonValue *v);
 
+static inline void ekonUpdateLine(uint32_t *line, uint32_t *pos, char c);
 static inline const char *ekonValueGetNumFast(const struct EkonValue *v,
                                               uint32_t *len);
 static inline const char *ekonValueGetNumStr(struct EkonValue *v);
@@ -197,7 +202,8 @@ static inline bool ekonValueObjDel(struct EkonValue *v, const char *key);
 
 static inline bool ekonCheckIfComment(const char *str, uint32_t index);
 static inline bool ekonParseTillCommentEnd(const char *str, uint32_t *index);
-static inline bool ekonConsumeComment(const char *s, uint32_t *index);
+static inline bool ekonConsumeComment(const char *s, uint32_t *index,
+                                      uint32_t *line, uint32_t *pos);
 
 // ...
 #ifndef EKON_SHORT_API
@@ -215,14 +221,14 @@ static inline void ReleaseAllocator(Allocator *rootAlloc) {
   ekonAllocatorRelease(rootAlloc);
 }
 static inline Value *NewValue(Allocator *alloc) { return ekonValueNew(alloc); }
-static inline bool ParseFast(Value *v, const char *s) {
-  return ekonValueParseFast(v, s);
+static inline bool ParseFast(Value *v, const char *s, char *err) {
+  return ekonValueParseFast(v, s, err);
 }
-static inline bool ParseLen(Value *v, const char *s, uint32_t len) {
-  return ekonValueParseLen(v, s, len);
+static inline bool ParseLen(Value *v, const char *s, uint32_t len, char *err) {
+  return ekonValueParseLen(v, s, len, err);
 }
-static inline bool Parse(Value *v, const char *s) {
-  return ekonValueParse(v, s);
+static inline bool Parse(Value *v, const char *s, char *err) {
+  return ekonValueParse(v, s, err);
 }
 static inline const char *Stringify(const Value *v) {
   return ekonValueStringify(v);
@@ -394,6 +400,10 @@ static inline uint32_t ekonLongLongToStr(long long n, char *buff) {
 }
 static inline uint32_t ekonDoubleToStr(double n, char *buff) {
   return snprintf(buff, 32, "%.17g", n);
+}
+
+static inline bool ekonError(char *mes, uint32_t line, uint32_t pos, char c) {
+  return snprintf(mes, 100, "[%d:%d] ERROR at %c", line, pos, c) != 0;
 }
 
 // compare strings
@@ -614,6 +624,14 @@ static inline struct EkonValue *ekonValueInnerNew(struct EkonAllocator *alloc,
   return v;
 }
 
+static inline void ekonUpdateLine(uint32_t *line, uint32_t *pos, char c) {
+  if (c == '\n') {
+    printf("line: %d\n", *line);
+    (*line)++;
+    (*pos) = 1;
+  }
+}
+
 // ignore spacing
 static inline bool ekonSkin(const char c) {
   if (EKON_UNLIKELY(
@@ -626,23 +644,29 @@ static inline bool ekonSkin(const char c) {
 
 static inline bool ekonConsume(const char c, const char *s, uint32_t *index);
 
-static inline bool ekonConsumeWhiteChars(const char *s, uint32_t *index) {
-  while (ekonSkin(s[*index]))
+static inline bool ekonConsumeWhiteChars(const char *s, uint32_t *index,
+                                         uint32_t *line, uint32_t *pos) {
+  while (ekonSkin(s[*index])) {
+    ekonUpdateLine(line, pos, s[*index]);
     ++(*index);
+  }
 
   if (s[*index] == '/') {
-    if (ekonConsumeComment(s, index) == false)
+    if (ekonConsumeComment(s, index, line, pos) == false)
       return false;
   }
-  while (ekonSkin(s[*index]))
+  while (ekonSkin(s[*index])) {
+    ekonUpdateLine(line, pos, s[*index]);
     ++(*index);
+  }
 
   return true;
 }
 
 // peek current character
-static inline char ekonPeek(const char *s, uint32_t *index) {
-  if (ekonConsumeWhiteChars(s, index) == false)
+static inline char ekonPeek(const char *s, uint32_t *index, uint32_t *line,
+                            uint32_t *pos) {
+  if (ekonConsumeWhiteChars(s, index, line, pos) == false)
     return 0;
   return s[(*index)++];
 }
@@ -678,8 +702,9 @@ static inline bool ekonUnlikelyConsume(const char c, const char *s,
 
 // peek and consume using likely
 static inline bool ekonLikelyPeekAndConsume(const char c, const char *s,
-                                            uint32_t *index) {
-  if(ekonConsumeWhiteChars(s, index) == false)
+                                            uint32_t *index, uint32_t *line,
+                                            uint32_t *pos) {
+  if (ekonConsumeWhiteChars(s, index, line, pos) == false)
     return false;
 
   if (EKON_LIKELY(s[*index] == c)) {
@@ -691,8 +716,9 @@ static inline bool ekonLikelyPeekAndConsume(const char c, const char *s,
 
 // peek and consume using unlikely
 static inline bool ekonUnlikelyPeekAndConsume(const char c, const char *s,
-                                              uint32_t *index) {
-  if(ekonConsumeWhiteChars(s, index) == false)
+                                              uint32_t *index, uint32_t *line,
+                                              uint32_t *pos) {
+  if (ekonConsumeWhiteChars(s, index, line, pos) == false)
     return false;
 
   if (EKON_UNLIKELY(s[*index] == c)) {
@@ -704,12 +730,14 @@ static inline bool ekonUnlikelyPeekAndConsume(const char c, const char *s,
 
 // consume a comment
 // multiline comments
-static inline bool ekonConsumeComment(const char *s, uint32_t *index) {
+static inline bool ekonConsumeComment(const char *s, uint32_t *index,
+                                      uint32_t *line, uint32_t *pos) {
   char curr = s[(*index)];
   if (s[(*index)++] == '/' && s[(*index)++] == '/') {
     if (s[*index] == '\n') {
+      ekonUpdateLine(line, pos, s[*index]);
       (*index)++;
-      if (ekonConsumeWhiteChars(s, index) == false)
+      if (ekonConsumeWhiteChars(s, index, line, pos) == false)
         return false;
       return true;
     }
@@ -720,7 +748,7 @@ static inline bool ekonConsumeComment(const char *s, uint32_t *index) {
     while (EKON_UNLIKELY(curr != '\n' && curr != 0))
       curr = s[(*index)++];
 
-    if (ekonConsumeWhiteChars(s, index) == false)
+    if (ekonConsumeWhiteChars(s, index, line, pos) == false)
       return false;
 
     return true;
@@ -1056,7 +1084,8 @@ ekonEscapeStrLen(const char *str, struct EkonAllocator *a, uint32_t len) {
 
 // consume a string
 static inline bool ekonConsumeStr(const char *s, uint32_t *index,
-                                  const char quoteType) {
+                                  const char quoteType, uint32_t *line,
+                                  uint32_t *pos) {
   char c;
   c = s[(*index)++];
   while (EKON_LIKELY(c != 0)) {
@@ -1064,8 +1093,8 @@ static inline bool ekonConsumeStr(const char *s, uint32_t *index,
       if (quoteType != '`')
         return false;
       else {
-        (*index)++;
-        return ekonConsumeStr(s, index, quoteType);
+        ekonUpdateLine(line, pos, c);
+        return ekonConsumeStr(s, index, quoteType, line, pos);
       }
     }
     if (EKON_UNLIKELY((unsigned char)c <= 0x1f))
@@ -1130,10 +1159,18 @@ static inline bool ekonConsumeUnquotedStr(const char *s, uint32_t *index) {
   char c;
   c = s[(*index)++];
   while (EKON_LIKELY(c != 0)) {
+    if (EKON_UNLIKELY(ekonSkin(c)) || c == '\'' || c == '"' || c == ',' ||
+        c == '{' || c == '}' || c == '[' || c == ']') {
+      return true;
+    }
+
+    if (c == ':') {
+      (*index)--;
+      return true;
+    }
+
     if (EKON_UNLIKELY((unsigned char)c <= 0x1f))
       return false;
-    if (EKON_UNLIKELY(ekonSkin(c)))
-      return true;
     c = s[(*index)++];
   }
   return false;
@@ -1218,14 +1255,34 @@ static inline bool ekonCheckStrLen(struct EkonAllocator *alloc, const char *s,
 }
 
 // consume a number
-static inline bool ekonConsumeNum(const char *s, uint32_t *index) {
+static inline bool ekonConsumeNum(const char *s, uint32_t *index,
+                                  uint32_t *line, uint32_t *pos) {
   --(*index);
 
   // handle unary minus
-  if (s[*index] == '-')
+  if (s[*index] == '-' || s[*index] == '+')
     ++(*index);
 
+  bool decimalStarted = false;
+
+  if (s[*index] == '.') {
+    decimalStarted = true;
+    (*index)++;
+  }
+
   if (ekonUnlikelyConsume('0', s, index)) {
+    if (ekonLikelyConsume('x', s, index) || ekonLikelyConsume('X', s, index)) {
+      uint8_t i = 0;
+      char c = s[*index];
+      while ((c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f') ||
+             (c >= '0' && c <= '9')) {
+        if (i > 4)
+          return false;
+        c = s[++(*index)];
+        i++;
+      }
+      return true;
+    }
   } else if (EKON_LIKELY(EKON_LIKELY(s[*index] >= '1') &&
                          EKON_LIKELY(s[*index] <= '9'))) {
     char c = s[++(*index)];
@@ -1235,11 +1292,17 @@ static inline bool ekonConsumeNum(const char *s, uint32_t *index) {
     return false;
 
   if (ekonConsume('.', s, index)) {
+    if (decimalStarted == true)
+      return false;
+
     char c = s[*index];
     if ((EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9'))) {
       c = s[++(*index)];
       while (EKON_LIKELY(EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9')))
         c = s[++(*index)];
+    } else if (c == ',' || c == '[' || c == ']' || c == '{' || c == '}' ||
+               c == '/' || c == '"' || c == '\'' || ekonSkin(c)) {
+      ekonUpdateLine(line, pos, c);
     } else
       return false;
   }
@@ -1258,17 +1321,6 @@ static inline bool ekonConsumeNum(const char *s, uint32_t *index) {
       return false;
   }
 
-  return true;
-}
-
-static inline bool ekonCheckUnquotedString(const char* s, uint32_t *len) {
-  for(int i = 0; i < len; i++) {
-    printf("c: %c, s[i]: %d\n", s[i], s[i]);
-    if (s[i] == 45 || (s[i] >= 64 && s[i] <= 90) || s[i] == 95 || (s[i] >= 97 && s[i] <= 127))
-      continue;
-    else
-      return false;
-  }
   return true;
 }
 
@@ -1344,10 +1396,13 @@ static inline bool ekonCheckNumLen(struct EkonAllocator *alloc, const char *s,
 }
 
 // Value Parse Fast - API
-static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
+static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
+                                      char *err) {
   if (EKON_UNLIKELY(s[0] == '\0'))
     return false;
 
+  uint32_t line = 1;
+  uint32_t pos = 1;
   struct EkonNode *srcNode;
 
   // v->node is empty and v->alloc has pointer to EkonNode
@@ -1371,19 +1426,19 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
 
   uint32_t index = 0;
   struct EkonNode *node = v->n;
+  bool isRootNoCurlyBrace = false;
 
-  char c = ekonPeek(s, &index);
-  printf("c: %c\n", c);
+  char c = ekonPeek(s, &index, &line, &pos);
+  const uint32_t ifRootStart = index - 1;
 
   switch (c) {
   case '[': {
     node->type = EKON_TYPE_ARRAY;
-    if (ekonUnlikelyPeekAndConsume(']', s, &index)) {
+    if (ekonUnlikelyPeekAndConsume(']', s, &index, &line, &pos)) {
       node->value.node = 0;
       node->len = 0;
       break;
     }
-    printf("c: %c, i: %d\n", s[index], index);
 
     struct EkonNode *n =
         (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
@@ -1405,7 +1460,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   }
   case '{': {
     node->type = EKON_TYPE_OBJECT;
-    if (ekonUnlikelyPeekAndConsume('}', s, &index)) {
+    if (ekonUnlikelyPeekAndConsume('}', s, &index, &line, &pos)) {
       node->value.node = 0;
       node->len = 0;
       break;
@@ -1430,10 +1485,40 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     break;
   }
   case 'n': {
+    uint32_t start = index - 1;
     if (EKON_LIKELY(ekonConsumeNull(s, &index))) {
-      node->type = EKON_TYPE_NULL;
-      node->value.str = ekonStrNull;
-      node->len = 4;
+      const char nextChar = s[index];
+      if (ekonSkin(nextChar) || nextChar == ']' || nextChar == '}' ||
+          nextChar == ',' || nextChar == '"' || nextChar == '\'') {
+        ekonUpdateLine(&line, &pos, nextChar);
+        node->type = EKON_TYPE_NULL;
+        node->value.str = ekonStrNull;
+        node->len = 4;
+        break;
+      }
+      if (ekonConsumeUnquotedStr(s, &index)) {
+        if (ekonUnlikelyPeekAndConsume(':', s, &index, &line, &pos)) {
+          isRootNoCurlyBrace = true;
+          index = ifRootStart;
+          break;
+        }
+        node->type = EKON_TYPE_STRING;
+        node->value.str = s + start;
+        node->len = index - start - 1;
+        index--;
+        break;
+      }
+    }
+    if (ekonConsumeUnquotedStr(s, &index)) {
+      if (ekonUnlikelyPeekAndConsume(':', s, &index, &line, &pos)) {
+        isRootNoCurlyBrace = true;
+        index = ifRootStart;
+        break;
+      }
+      node->type = EKON_TYPE_STRING;
+      node->value.str = s + start;
+      node->len = index - start - 1;
+      index--;
       break;
     }
     if (EKON_LIKELY(srcNode == 0))
@@ -1443,10 +1528,40 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     return false;
   }
   case 'f': {
+    uint32_t start = index - 1;
     if (EKON_LIKELY(ekonConsumeFalse(s, &index))) {
-      node->type = EKON_TYPE_BOOL;
-      node->value.str = ekonStrFalse;
-      node->len = 5;
+      const char nextChar = s[index];
+      if (ekonSkin(nextChar) || nextChar == ']' || nextChar == '}' ||
+          nextChar == ',' || nextChar == '"' || nextChar == '\'') {
+        node->type = EKON_TYPE_BOOL;
+        node->value.str = ekonStrFalse;
+        node->len = 5;
+        break;
+      }
+
+      if (ekonConsumeUnquotedStr(s, &index)) {
+        if (ekonUnlikelyPeekAndConsume(':', s, &index, &line, &pos)) {
+          isRootNoCurlyBrace = true;
+          index = ifRootStart;
+          break;
+        }
+        node->type = EKON_TYPE_STRING;
+        node->value.str = s + start;
+        node->len = index - start - 1;
+        index--;
+        break;
+      }
+    }
+    if (ekonConsumeUnquotedStr(s, &index)) {
+      if (ekonUnlikelyPeekAndConsume(':', s, &index, &line, &pos)) {
+        isRootNoCurlyBrace = true;
+        index = ifRootStart;
+        break;
+      }
+      node->type = EKON_TYPE_STRING;
+      node->value.str = s + start;
+      node->len = index - start - 1;
+      index--;
       break;
     }
     if (EKON_LIKELY(srcNode == 0))
@@ -1456,10 +1571,40 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     return false;
   }
   case 't': {
+    uint32_t start = index - 1;
     if (EKON_LIKELY(ekonConsumeTrue(s, &index))) {
-      node->type = EKON_TYPE_BOOL;
-      node->value.str = ekonStrTrue;
-      node->len = 4;
+      const char nextChar = s[index];
+      if (ekonSkin(nextChar) || nextChar == ']' || nextChar == '}' ||
+          nextChar == ',' || nextChar == '"' || nextChar == '\'') {
+        node->type = EKON_TYPE_BOOL;
+        node->value.str = ekonStrTrue;
+        node->len = 4;
+        break;
+      }
+
+      if (ekonConsumeUnquotedStr(s, &index)) {
+        if (ekonUnlikelyPeekAndConsume(':', s, &index, &line, &pos)) {
+          isRootNoCurlyBrace = true;
+          index = ifRootStart;
+          break;
+        }
+        node->type = EKON_TYPE_STRING;
+        node->value.str = s + start;
+        node->len = index - start - 1;
+        index--;
+        break;
+      }
+    }
+    if (ekonConsumeUnquotedStr(s, &index)) {
+      if (ekonUnlikelyPeekAndConsume(':', s, &index, &line, &pos)) {
+        isRootNoCurlyBrace = true;
+        index = ifRootStart;
+        break;
+      }
+      node->type = EKON_TYPE_STRING;
+      node->value.str = s + start;
+      node->len = index - start - 1;
+      index--;
       break;
     }
     if (EKON_LIKELY(srcNode == 0))
@@ -1478,7 +1623,13 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
       node->len = 0;
       break;
     }
-    if (EKON_LIKELY(ekonConsumeStr(s, &index, c))) {
+    if (EKON_LIKELY(ekonConsumeStr(s, &index, c, &line, &pos))) {
+      if (ekonUnlikelyPeekAndConsume(':', s, &index, &line, &pos)) {
+        isRootNoCurlyBrace = true;
+        index = ifRootStart;
+        break;
+      }
+
       node->type = EKON_TYPE_STRING;
       node->value.str = s + start;
       node->len = index - start - 1;
@@ -1493,11 +1644,54 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   }
   default: {
     uint32_t start = index - 1;
-    if (EKON_LIKELY(ekonConsumeNum(s, &index))) {
-      node->type = EKON_TYPE_NUMBER;
-      node->value.str = s + start;
-      node->len = index - start;
+    if (s[start] == '-' || s[start] == '.' || s[start] == '+') {
+      if (s[index] >= '0' && s[index] <= '9') {
+        if (EKON_LIKELY(ekonConsumeNum(s, &index, &line, &pos))) {
+          node->type = EKON_TYPE_NUMBER;
+          node->value.str = s + start;
+          node->len = index - start;
+          break;
+        }
+      } else {
+        index--;
+        if (ekonConsumeUnquotedStr(s, &index)) {
+          if (s[index] == ':') {
+            isRootNoCurlyBrace = true;
+            index = ifRootStart;
+            break;
+          }
+          node->type = EKON_TYPE_STRING;
+          node->value.str = s + start;
+          node->len = index - start - 1;
+          index--;
+          break;
+        }
+      }
     }
+
+    if (s[start] >= '0' && s[start] <= '9') {
+      if (EKON_LIKELY(ekonConsumeNum(s, &index, &line, &pos))) {
+        node->type = EKON_TYPE_NUMBER;
+        node->value.str = s + start;
+        node->len = index - start;
+        break;
+      }
+    } else {
+      index--;
+      if (ekonConsumeUnquotedStr(s, &index)) {
+        if (s[index] == ':') {
+          isRootNoCurlyBrace = true;
+          index = ifRootStart;
+          break;
+        }
+        node->type = EKON_TYPE_STRING;
+        node->value.str = s + start;
+        node->len = index - start - 1;
+        index--;
+        break;
+      }
+    }
+
     if (EKON_LIKELY(srcNode == 0))
       v->n = srcNode;
     else
@@ -1506,34 +1700,71 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
   }
   }
 
+  if (isRootNoCurlyBrace == true) {
+    // take this as an object
+    node->type = EKON_TYPE_OBJECT;
+    struct EkonNode *n =
+        (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    if (EKON_UNLIKELY(n == 0)) {
+      if (EKON_LIKELY(srcNode == 0))
+        v->n = srcNode;
+      else
+        *v->n = *srcNode;
+      return false;
+    }
+    n->father = node;
+    n->prev = 0;
+    n->next = 0;
+
+    node->value.node = n;
+    node->end = n;
+    node->len = 1;
+    node = n;
+  }
+
   while (EKON_LIKELY(node != v->n)) {
     if (node->father->type == EKON_TYPE_OBJECT) {
-      if (EKON_UNLIKELY(ekonLikelyPeekAndConsume('"', s, &index) == false) &&
-          EKON_UNLIKELY(ekonLikelyPeekAndConsume('\'', s, &index) == false)) {
-        if (EKON_LIKELY(srcNode == 0))
-          v->n = srcNode;
-        else
-          *v->n = *srcNode;
-        return false;
-      }
-      char quoteType = s[index - 1]; // either `"` or `'` or "`"
-      uint32_t start = index;
-      if (EKON_UNLIKELY(ekonUnlikelyConsume(quoteType, s, &index))) {
-        node->key = s + start;
-        node->keyLen = 0;
-      } else {
-        if (EKON_UNLIKELY(ekonConsumeStr(s, &index, quoteType) == false)) {
+      bool isKeyUnquoted = false;
+      if (EKON_UNLIKELY(ekonLikelyPeekAndConsume('"', s, &index, &line, &pos) ==
+                        false) &&
+          EKON_UNLIKELY(ekonLikelyPeekAndConsume('\'', s, &index, &line,
+                                                 &pos) == false)) {
+        uint32_t start = index;
+        if (ekonConsumeUnquotedStr(s, &index)) {
+          isKeyUnquoted = true;
+          node->key = s + start;
+          node->keyLen = index - start;
+        } else {
           if (EKON_LIKELY(srcNode == 0))
             v->n = srcNode;
           else
             *v->n = *srcNode;
           return false;
         }
-        node->key = s + start;
-        node->keyLen = index - start - 1;
       }
 
-      if (EKON_UNLIKELY(ekonLikelyPeekAndConsume(':', s, &index) == false)) {
+      if (isKeyUnquoted == false) {
+        char quoteType = s[index - 1]; // either `"` or `'` or "`"
+        uint32_t start = index;
+        if (EKON_UNLIKELY(ekonUnlikelyConsume(quoteType, s, &index))) {
+          node->key = s + start;
+          node->keyLen = 0;
+        } else {
+          if (EKON_UNLIKELY(ekonConsumeStr(s, &index, quoteType, &line, &pos) ==
+                            false)) {
+            if (EKON_LIKELY(srcNode == 0))
+              v->n = srcNode;
+            else
+              *v->n = *srcNode;
+            return false;
+          }
+          node->key = s + start;
+          node->keyLen = index - start - 1;
+        }
+      }
+
+      if (EKON_UNLIKELY(ekonLikelyPeekAndConsume(':', s, &index, &line, &pos) ==
+                        false)) {
         if (EKON_LIKELY(srcNode == 0))
           v->n = srcNode;
         else
@@ -1544,12 +1775,11 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
       node->key = 0;
     }
 
-    c = ekonPeek(s, &index);
-
+    c = ekonPeek(s, &index, &line, &pos);
     switch (c) {
     case '[': {
       node->type = EKON_TYPE_ARRAY;
-      if (ekonUnlikelyPeekAndConsume(']', s, &index)) {
+      if (ekonUnlikelyPeekAndConsume(']', s, &index, &line, &pos)) {
         node->value.node = 0;
         node->len = 0;
         break;
@@ -1575,8 +1805,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     }
     case '{': {
       node->type = EKON_TYPE_OBJECT;
-
-      if (ekonUnlikelyPeekAndConsume('}', s, &index)) {
+      if (ekonUnlikelyPeekAndConsume('}', s, &index, &line, &pos)) {
         node->value.node = 0;
         node->len = 0;
         break;
@@ -1602,10 +1831,32 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
       continue;
     }
     case 'n': {
+      uint32_t start = index - 1;
       if (EKON_LIKELY(ekonConsumeNull(s, &index))) {
-        node->type = EKON_TYPE_NULL;
-        node->value.str = ekonStrNull;
-        node->len = 4;
+        const char nextChar = s[index];
+        if (ekonSkin(nextChar) || nextChar == ']' || nextChar == '}' ||
+            nextChar == ',' || nextChar == '"' || nextChar == '\'' ||
+            nextChar == 0) {
+          ekonUpdateLine(&line, &pos, nextChar);
+          node->type = EKON_TYPE_NULL;
+          node->value.str = ekonStrNull;
+          node->len = 4;
+          break;
+        }
+
+        if (ekonConsumeUnquotedStr(s, &index)) {
+          node->type = EKON_TYPE_STRING;
+          node->value.str = s + start;
+          node->len = index - start - 1;
+          index--;
+          break;
+        }
+      }
+      if (ekonConsumeUnquotedStr(s, &index)) {
+        node->type = EKON_TYPE_STRING;
+        node->value.str = s + start;
+        node->len = index - start - 1;
+        index--;
         break;
       }
       if (EKON_LIKELY(srcNode == 0))
@@ -1615,12 +1866,36 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
       return false;
     }
     case 'f': {
+      uint32_t start = index - 1;
       if (EKON_LIKELY(ekonConsumeFalse(s, &index))) {
-        node->type = EKON_TYPE_BOOL;
-        node->value.str = ekonStrFalse;
-        node->len = 5;
+        const char nextChar = s[index];
+        if (ekonSkin(nextChar) || nextChar == ']' || nextChar == '}' ||
+            nextChar == ',' || nextChar == '"' || nextChar == '\'' ||
+            nextChar == 0) {
+          ekonUpdateLine(&line, &pos, nextChar);
+          node->type = EKON_TYPE_BOOL;
+          node->value.str = ekonStrFalse;
+          node->len = 5;
+          break;
+        }
+
+        index--;
+        if (ekonConsumeUnquotedStr(s, &index)) {
+          node->type = EKON_TYPE_STRING;
+          node->value.str = s + start;
+          node->len = index - start - 1;
+          index--;
+          break;
+        }
+      }
+      if (ekonConsumeUnquotedStr(s, &index)) {
+        node->type = EKON_TYPE_STRING;
+        node->value.str = s + start;
+        node->len = index - start - 1;
+        index--;
         break;
       }
+
       if (EKON_LIKELY(srcNode == 0))
         v->n = srcNode;
       else
@@ -1628,12 +1903,37 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
       return false;
     }
     case 't': {
+      uint32_t start = index - 1;
       if (EKON_LIKELY(ekonConsumeTrue(s, &index))) {
-        node->type = EKON_TYPE_BOOL;
-        node->value.str = ekonStrTrue;
-        node->len = 4;
+        const char nextChar = s[index];
+        if (ekonSkin(nextChar) || nextChar == ']' || nextChar == '}' ||
+            nextChar == ',' || nextChar == '"' || nextChar == 0 ||
+            nextChar == '\'') {
+          ekonUpdateLine(&line, &pos, c);
+          node->type = EKON_TYPE_BOOL;
+          node->value.str = ekonStrTrue;
+          node->len = 4;
+          break;
+        }
+
+        index--;
+        if (ekonConsumeUnquotedStr(s, &index)) {
+          node->type = EKON_TYPE_STRING;
+          node->value.str = s + start;
+          node->len = index - start - 1;
+          index--;
+          break;
+        }
+      }
+
+      if (ekonConsumeUnquotedStr(s, &index)) {
+        node->type = EKON_TYPE_STRING;
+        node->value.str = s + start;
+        node->len = index - start - 1;
+        index--;
         break;
       }
+
       if (EKON_LIKELY(srcNode == 0))
         v->n = srcNode;
       else
@@ -1650,7 +1950,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
         node->len = 0;
         break;
       }
-      if (EKON_LIKELY(ekonConsumeStr(s, &index, c))) {
+      if (EKON_LIKELY(ekonConsumeStr(s, &index, c, &line, &pos))) {
         node->type = EKON_TYPE_STRING;
         node->value.str = s + start;
         node->len = index - start - 1;
@@ -1664,11 +1964,40 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     }
     default: {
       uint32_t start = index - 1;
-      if (EKON_LIKELY(ekonConsumeNum(s, &index))) {
-        node->type = EKON_TYPE_NUMBER;
-        node->value.str = s + start;
-        node->len = index - start;
-        break;
+      if (s[start] == '-' || s[start] == '.' || s[start] == '+') {
+        if ((s[index] >= '0' && s[index] <= '9') || s[index] == '.') {
+          if (EKON_LIKELY(ekonConsumeNum(s, &index, &line, &pos))) {
+            node->type = EKON_TYPE_NUMBER;
+            node->value.str = s + start;
+            node->len = index - start;
+            break;
+          }
+        } else {
+          if (ekonConsumeUnquotedStr(s, &index)) {
+            node->type = EKON_TYPE_STRING;
+            node->value.str = s + start;
+            node->len = index - start - 1;
+            index--;
+            break;
+          }
+        }
+      }
+
+      if (s[start] >= '0' && s[start] <= '9') {
+        if (EKON_LIKELY(ekonConsumeNum(s, &index, &line, &pos))) {
+          node->type = EKON_TYPE_NUMBER;
+          node->value.str = s + start;
+          node->len = index - start;
+          break;
+        }
+      } else {
+        index--;
+        if (ekonConsumeUnquotedStr(s, &index)) {
+          node->type = EKON_TYPE_STRING;
+          node->value.str = s + start;
+          node->len = index - start - 1;
+          break;
+        }
       }
       if (EKON_LIKELY(srcNode == 0))
         v->n = srcNode;
@@ -1679,7 +2008,18 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
     }
 
     while (EKON_LIKELY(node != v->n)) {
-      if (ekonLikelyPeekAndConsume(',', s, &index)) {
+      char c = ekonPeek(s, &index, &line, &pos);
+      if (c == ',')
+        c = ekonPeek(s, &index, &line, &pos);
+
+      if ((EKON_LIKELY((EKON_LIKELY(c == '}') &&
+                        EKON_LIKELY(node->father->type == EKON_TYPE_OBJECT))) ||
+           EKON_LIKELY(EKON_LIKELY(c == ']') &&
+                       EKON_LIKELY(node->father->type == EKON_TYPE_ARRAY))) ||
+          (c == 0 && isRootNoCurlyBrace)) {
+        node->next = 0;
+        node = node->father;
+      } else {
         struct EkonNode *n = (struct EkonNode *)ekonAllocatorAlloc(
             v->a, sizeof(struct EkonNode));
         if (EKON_UNLIKELY(n == 0)) {
@@ -1696,30 +2036,13 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
         ++(node->father->len);
         node->next = n;
         node = n;
+        index--;
         break;
-      } else {
-        char c = ekonPeek(s, &index);
-
-        if (EKON_LIKELY(
-                (EKON_LIKELY(c == '}') &&
-                 EKON_LIKELY(node->father->type == EKON_TYPE_OBJECT))) ||
-            EKON_LIKELY(EKON_LIKELY(c == ']') &&
-                        EKON_LIKELY(node->father->type == EKON_TYPE_ARRAY))) {
-
-          node->next = 0;
-          node = node->father;
-        } else {
-          if (EKON_LIKELY(srcNode == 0))
-            v->n = srcNode;
-          else
-            *v->n = *srcNode;
-          return false;
-        }
       }
     }
   }
 
-  if (EKON_LIKELY(ekonLikelyPeekAndConsume(0, s, &index)))
+  if (EKON_LIKELY(ekonLikelyPeekAndConsume(0, s, &index, &line, &pos)))
     return true;
 
   if (EKON_LIKELY(srcNode == 0))
@@ -1731,18 +2054,19 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s) {
 
 // ekon parse - API
 static inline bool ekonValueParseLen(struct EkonValue *v, const char *s,
-                                     uint32_t len) {
+                                     uint32_t len, char *err) {
   char *str = ekonAllocatorAlloc(v->a, len + 1);
   if (EKON_UNLIKELY(str == 0))
     return false;
   ekonCopy(s, len, str);
   str[len] = 0;
-  return ekonValueParseFast(v, s);
+  return ekonValueParseFast(v, s, err);
 }
 
 // The main parser - API
-static inline bool ekonValueParse(struct EkonValue *v, const char *s) {
-  return ekonValueParseLen(v, s, ekonStrLen(s));
+static inline bool ekonValueParse(struct EkonValue *v, const char *s,
+                                  char *err) {
+  return ekonValueParseLen(v, s, ekonStrLen(s), err);
 }
 
 // stringify a value

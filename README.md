@@ -258,12 +258,14 @@ TODO!
     - [ ] Complete the C library
         - [x] Support for Comments
         - [x] Support for single-quote and backtick based strings
-        - [ ] Support for unquoted strings for both keys and values
-        - [ ] Support for trailing and preceding decimal numbers
-        - [ ] Support for positive and negative signs
-        - [ ] Support for optional commas
-        - [ ] Support for optional root curly brackets
-        - [ ] Error handling using a char array
+        - [x] Support for unquoted strings for both keys and values
+        - [x] Support for trailing and preceding decimal numbers
+        - [x] Support for positive and negative signs
+        - [ ] Support for hex numbers
+        - [x] Support for optional commas
+        - [x] Support for trailing commas
+        - [x] Support for optional root curly bracket
+        - [ ] Error handling using an error message
         - [ ] Stringify to EKON
         - [ ] Stringify to JSON and strict JSON parsing support
         - [ ] Beautify support

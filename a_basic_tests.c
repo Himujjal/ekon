@@ -93,7 +93,8 @@ void getAndSet(Value *src, Value *des) {
 }
 
 bool EKON_Parse(Value *srcV, const char *srcEkon) {
-  return ekonValueParseFast(srcV, srcEkon);
+  char *message;
+  return ekonValueParseFast(srcV, srcEkon, message);
 }
 
 int main() {
@@ -116,14 +117,15 @@ int main() {
   }
 
   const char *src = ekonValueStringify(srcV);
-  printf("srcEkon Stringified: %s\n", src);
+  printf("**\n");
+  // printf("srcEkon Stringified: %s\n", src);
 
   // Get and Set EKON
   getAndSet(srcV, desV);
 
   // DesEkon
   const char *des = ekonValueStringify(desV);
-  printf("desEkon Stringified: %s\n", des);
+  /* printf("desEkon Stringified: %s\n", des); */
 
   // ReleaseAllocator
   ekonAllocatorRelease(a);

@@ -1398,8 +1398,10 @@ static inline bool ekonCheckNumLen(struct EkonAllocator *alloc, const char *s,
 // Value Parse Fast - API
 static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
                                       char *err) {
-  if (EKON_UNLIKELY(s[0] == '\0'))
+  if (EKON_UNLIKELY(s[0] == '\0')) {
+    ekonError(err, 1, 0, 0);
     return false;
+  }
 
   uint32_t line = 1;
   uint32_t pos = 1;
@@ -1408,8 +1410,10 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
   // v->node is empty and v->alloc has pointer to EkonNode
   if (EKON_LIKELY(v->n == 0)) {
     v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
-    if (EKON_UNLIKELY(v->n == 0))
+    if (EKON_UNLIKELY(v->n == 0)) {
+      ekonError(err, line, pos, 0);
       return false;
+    }
     v->n->prev = 0;
     v->n->next = 0;
     v->n->father = 0;
@@ -1419,8 +1423,10 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
     // v->node is not empty and allocator is used to allocate srcNode
     srcNode =
         (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
-    if (EKON_UNLIKELY(srcNode == 0))
+    if (EKON_UNLIKELY(srcNode == 0)) {
+      ekonError(err, line, pos, 0);
       return false;
+    }
     *srcNode = *v->n;
   }
 
@@ -1447,6 +1453,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
         v->n = srcNode;
       else
         *v->n = *srcNode;
+      ekonError(err, line, pos, c);
       return false;
     }
     n->father = node;
@@ -1472,6 +1479,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
         v->n = srcNode;
       else
         *v->n = *srcNode;
+      ekonError(err, line, pos, c);
       return false;
     }
     n->father = node;
@@ -1525,6 +1533,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
       v->n = srcNode;
     else
       *v->n = *srcNode;
+    ekonError(err, line, pos, c);
     return false;
   }
   case 'f': {
@@ -1568,6 +1577,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
       v->n = srcNode;
     else
       *v->n = *srcNode;
+    ekonError(err, line, pos, c);
     return false;
   }
   case 't': {
@@ -1611,6 +1621,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
       v->n = srcNode;
     else
       *v->n = *srcNode;
+    ekonError(err, line, pos, c);
     return false;
   }
   case '\'':
@@ -1640,6 +1651,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
       v->n = srcNode;
     else
       *v->n = *srcNode;
+    ekonError(err, line, pos, c);
     return false;
   }
   default: {
@@ -1696,6 +1708,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
       v->n = srcNode;
     else
       *v->n = *srcNode;
+    ekonError(err, line, pos, c);
     return false;
   }
   }
@@ -1710,6 +1723,8 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
         v->n = srcNode;
       else
         *v->n = *srcNode;
+      ekonError(err, line, pos, c);
+
       return false;
     }
     n->father = node;
@@ -1739,6 +1754,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
             v->n = srcNode;
           else
             *v->n = *srcNode;
+          ekonError(err, line, pos, c);
           return false;
         }
       }
@@ -1756,6 +1772,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
               v->n = srcNode;
             else
               *v->n = *srcNode;
+            ekonError(err, line, pos, c);
             return false;
           }
           node->key = s + start;
@@ -1769,6 +1786,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
           v->n = srcNode;
         else
           *v->n = *srcNode;
+        ekonError(err, line, pos, c);
         return false;
       }
     } else {
@@ -1791,6 +1809,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
           v->n = srcNode;
         else
           *v->n = *srcNode;
+        ekonError(err, line, pos, c);
         return false;
       }
 
@@ -1817,6 +1836,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
           v->n = srcNode;
         else
           *v->n = *srcNode;
+        ekonError(err, line, pos, c);
         return false;
       }
       n->father = node;
@@ -1863,6 +1883,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
         v->n = srcNode;
       else
         *v->n = *srcNode;
+      ekonError(err, line, pos, c);
       return false;
     }
     case 'f': {
@@ -1900,6 +1921,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
         v->n = srcNode;
       else
         *v->n = *srcNode;
+      ekonError(err, line, pos, c);
       return false;
     }
     case 't': {
@@ -1938,6 +1960,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
         v->n = srcNode;
       else
         *v->n = *srcNode;
+      ekonError(err, line, pos, c);
       return false;
     }
     case '`':
@@ -1960,6 +1983,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
         v->n = srcNode;
       else
         *v->n = *srcNode;
+      ekonError(err, line, pos, c);
       return false;
     }
     default: {
@@ -2003,6 +2027,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
         v->n = srcNode;
       else
         *v->n = *srcNode;
+      ekonError(err, line, pos, c);
       return false;
     }
     }
@@ -2027,6 +2052,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
             v->n = srcNode;
           else
             *v->n = *srcNode;
+          ekonError(err, line, pos, c);
           return false;
         }
         n->father = node->father;
@@ -2049,6 +2075,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
     v->n = srcNode;
   else
     *v->n = *srcNode;
+  ekonError(err, line, pos, c);
   return false;
 }
 

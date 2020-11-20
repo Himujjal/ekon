@@ -1,0 +1,5 @@
+{
+  "watch": ["stringify.c", "../../ekon.h", "*.ekon"],
+  "ext": "c,h,ekon",
+  "exec": "clear && gcc stringify.c -o main && ./main"
+}

@@ -1,0 +1,14 @@
+unquotedKey: forSimpleOneWordStrings
+unquotedKey2: john_doe@gmail.com // TIP: Prefer single-quotes for URLs ("'<URL>'")
+multi:`
+h
+`
+"stringVal":"h",
+"arrayVal":[1,2,3,4],
+"numVal":-0.1,
+"obj":{
+    "k": "v"
+    "yo":"Hi There"
+    yo: {'1': 1}
+}
+]

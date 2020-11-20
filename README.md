@@ -265,6 +265,7 @@ TODO!
         - [x] Support for optional commas
         - [x] Support for trailing commas
         - [x] Support for optional root curly bracket
+        - [ ] Tests, Tests, Tests: parsing
         - [ ] Error handling using an error message
         - [ ] Stringify to EKON
         - [ ] Stringify to JSON and strict JSON parsing support
@@ -272,9 +273,12 @@ TODO!
         - [ ] Minify support
         - [ ] `\r\n` support for windows
     - [ ] Write & test the nim code
+    - [ ] WebAssembly Support
 - [ ] EKON Language Server
 - [ ] EKON IDE Support
 - [ ] EKON All Language Support
+- [ ] EKON icon
+    - [ ] DevIcons
 - [ ] EKON RPC repo
 
 ## Contribution and Issues:

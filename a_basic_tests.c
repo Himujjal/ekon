@@ -1,28 +1,7 @@
 #include "./ekon.h"
+#include "./tests/c_api/utils.h"
 #include <stdio.h>
 #include <string.h>
-
-const char *readFromFile(const char *fileName) {
-  FILE *fp;
-  long lSize;
-  char *buff;
-
-  fp = fopen(fileName, "r");
-  if (!fp)
-    perror(strcat("Couldn't open ", fileName)), exit(1);
-
-  fseek(fp, 0L, SEEK_END);
-  lSize = ftell(fp);
-  rewind(fp);
-
-  // allocate memory
-  buff = calloc(1, lSize + 1);
-  if (1 != fread(buff, lSize, 1, fp))
-    fclose(fp), free(buff), fputs("Entire read fails", stderr), exit(1);
-
-  fclose(fp);
-  return buff;
-}
 
 // Get the EKON and Set some EKON
 void getAndSet(Value *src, Value *des) {
@@ -94,7 +73,10 @@ void getAndSet(Value *src, Value *des) {
 
 bool EKON_Parse(Value *srcV, const char *srcEkon) {
   char *message;
-  return ekonValueParseFast(srcV, srcEkon, message);
+  bool success = ekonValueParseFast(srcV, srcEkon, message);
+  if (*message != 0)
+    printf("Error Message: %s", message);
+  return success;
 }
 
 int main() {

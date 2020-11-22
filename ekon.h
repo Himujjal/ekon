@@ -1726,6 +1726,11 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
 
     if (s[start] >= '0' && s[start] <= '9') {
       if (EKON_LIKELY(ekonConsumeNum(s, &index, &line, &pos))) {
+        if (ekonUnlikelyPeekAndConsume(':', s, &index, &line, &pos)) {
+          isRootNoCurlyBrace = true;
+          index = ifRootStart;
+          break;
+        }
         node->type = EKON_TYPE_NUMBER;
         node->value.str = s + start;
         node->len = index - start;
@@ -1734,7 +1739,7 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
     } else {
       index--;
       if (ekonConsumeUnquotedStr(s, &index, &line, &pos)) {
-        if (s[index] == ':') {
+        if (ekonUnlikelyPeekAndConsume(':', s, &index, &line, &pos)) {
           isRootNoCurlyBrace = true;
           index = ifRootStart;
           break;
@@ -2132,11 +2137,13 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
           if (node->father->type == EKON_TYPE_OBJECT) {
             node->next = 0;
             node = node->father;
+            // index++;
           }
         } else {
           if (node->father->type == EKON_TYPE_ARRAY) {
             node->next = 0;
             node = node->father;
+            // index++;
           }
         }
       } else {
@@ -2329,7 +2336,7 @@ static inline const bool ekonAppendQuote(const struct EkonNode *node,
     if (EKON_UNLIKELY(ekonStringAppendChar(str, '`') == false))
       return false;
   } else if (node->isStrSpaced == true) {
-    if (EKON_UNLIKELY(ekonStringAppendChar(str, '`') == false))
+    if (EKON_UNLIKELY(ekonStringAppendChar(str, '\'') == false))
       return false;
   }
   return true;

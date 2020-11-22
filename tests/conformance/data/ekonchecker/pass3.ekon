@@ -1,0 +1,4 @@
+JSONTestPatternpass3: {
+    Theoutermostvalue: 'must be an object or array.'
+    Inthistest: 'It is an object.'
+}

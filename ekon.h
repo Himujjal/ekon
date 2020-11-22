@@ -96,8 +96,7 @@ static inline bool ekonValueParse(struct EkonValue *v, const char *s,
                                   char **err);
 
 static inline const char *ekonValueStringifyToJSON(const struct EkonValue *v);
-static inline const char *ekonValueStringify(const struct EkonValue *v,
-                                             bool isRoot);
+static inline const char *ekonValueStringify(const struct EkonValue *v);
 
 static inline const char *ekonValueGetStrFast(const struct EkonValue *v,
                                               uint32_t *len);
@@ -232,8 +231,8 @@ static inline bool ParseLen(Value *v, const char *s, uint32_t len, char **err) {
 static inline bool Parse(Value *v, const char *s, char **err) {
   return ekonValueParse(v, s, err);
 }
-static inline const char *Stringify(const Value *v, bool isRoot) {
-  return ekonValueStringify(v, isRoot);
+static inline const char *Stringify(const Value *v) {
+  return ekonValueStringify(v);
 }
 static inline const char *StringifyToJSON(const Value *v) {
   return ekonValueStringifyToJSON(v);
@@ -2098,7 +2097,8 @@ static inline bool ekonValueParseFast(struct EkonValue *v, const char *s,
     while (EKON_LIKELY(node != v->n)) {
       char c = ekonPeek(s, &index, &line, &pos);
       if (c == ',')
-        c = ekonPeek(s, &index, &line, &pos);
+        if (c == ',')
+          c = ekonPeek(s, &index, &line, &pos);
 
       if ((EKON_LIKELY((EKON_LIKELY(c == '}') &&
                         EKON_LIKELY(node->father->type == EKON_TYPE_OBJECT))) ||
@@ -2302,8 +2302,7 @@ static inline const bool ekonAppendQuote(const struct EkonNode *node,
   return true;
 }
 
-static inline const char *ekonValueStringify(const struct EkonValue *v,
-                                             bool isRoot) {
+static inline const char *ekonValueStringify(const struct EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return "";
 

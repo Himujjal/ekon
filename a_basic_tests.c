@@ -73,15 +73,15 @@ void getAndSet(Value *src, Value *des) {
 
 bool EKON_Parse(Value *srcV, const char *srcEkon) {
   char *message;
-  bool success = ekonValueParseFast(srcV, srcEkon, message);
-  if (*message != 0)
+  bool success = ekonValueParseFast(srcV, srcEkon, &message);
+  if (success == false)
     printf("Error Message: %s", message);
   return success;
 }
 
 int main() {
   printf("-----\n");
-  const char *srcEkon = readFromFile("specs.ekon");
+  const char *srcEkon = readFromFile("specs1.ekon");
 
   // Allocate new chunk of memory
   Allocator *a = ekonAllocatorNew();
@@ -100,7 +100,7 @@ int main() {
 
   const char *src = ekonValueStringify(srcV);
   printf("**\n");
-  // printf("srcEkon Stringified: %s\n", src);
+  printf("srcEkon Stringified: %s\n", src);
 
   // Get and Set EKON
   getAndSet(srcV, desV);

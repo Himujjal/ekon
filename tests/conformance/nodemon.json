@@ -1,0 +1,5 @@
+{
+  "watch": ["*.cpp", "*.c", "../test.h", "../../ekon.h", "data/**/*.ekon"],
+  "ext": "cpp,c,h,ekon",
+  "exec": "clear && g++ *.cpp -o main && ./main"
+}

@@ -1,25 +1,4 @@
- hey: {
-     yo: `there ..
- is
- nothing`,
-     hey: my
- }
- 'k': {
-     "he": 'e this is my life'
- }
- 1:yo
- 2:hey
- 3:4
- 5:true,
- 6:[
- hey,
- ]
- 7:null,
-h:{
-    9: {
-       10: {
-            yo: ''
-        }
-        11: {
-            hey: "",
-            t: true,},},},
+JSONTestPatternpass3: {
+    Theoutermostvalue: 'must be an object or array.',
+    Inthistest: 'It is an object.'
+}

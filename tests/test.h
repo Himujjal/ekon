@@ -11,10 +11,11 @@ static int SuccCount = 0;
 static int FailCount = 0;
 
 // Check which parts of the program failed
-static void CheckRet(const char *func, unsigned int line, bool ret) {
+static void CheckRet(const char *func, unsigned int line, std::string str,
+                     bool ret) {
   if (ret == false) {
     // print in red color
-    std::cout << "\033[31m" << func << "(" << line << "):fail"
+    std::cout << "\033[31m" << func << "(" << line << "):fail " << str
               << "\033[37m" << std::endl;
     ++FailCount;
   } else {

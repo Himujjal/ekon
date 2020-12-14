@@ -1,42 +1,97 @@
-from os import fileExists, expandFilename
+import json
+import hashes
+import strutils
+import lexbase
+import macros
+import options
+import streams
+import tables
 
-const libName* = "libmagic.so"
 
-const  MAGIC_NONE              * = 0x0000000 # No flags 
-const  MAGIC_DEBUG             * = 0x0000001 # Turn on debugging 
-const  MAGIC_SYMLINK           * = 0x0000002 # Follow symlinks 
-const  MAGIC_COMPRESS          * = 0x0000004 # Check inside compressed files 
-const  MAGIC_DEVICES           * = 0x0000008 # Look at the contents of devices 
-const  MAGIC_MIME_TYPE         * = 0x0000010 # Return the MIME type 
-const  MAGIC_CONTINUE          * = 0x0000020 # Return all matches 
-const  MAGIC_CHECK             * = 0x0000040 # Print warnings to stderr 
-const  MAGIC_PRESERVE_ATIME    * = 0x0000080 # Restore access time on exit 
-const  MAGIC_RAW               * = 0x0000100 # Don't convert unprintable chars 
-const  MAGIC_ERROR             * = 0x0000200 # Handle ENOENT etc as real errors 
-const  MAGIC_MIME_ENCODING     * = 0x0000400 # Return the MIME encoding 
-const  MAGIC_APPLE             * = 0x0000800 # Return the Apple creator/type 
-const  MAGIC_EXTENSION         * = 0x1000000 # Return a /-separated list of
-const  MAGIC_COMPRESS_TRANSP   * = 0x2000000 # Check inside compressed files
+type
+  EkonType = enum
+    EKON_TYPE_BOOL, EKON_TYPE_ARRAY, EKON_TYPE_OBJECT, EKON_TYPE_STRING,
+    EKON_TYPE_NULL, EKON_TYPE_NUMBER
+  CEkonNode = object {.importc:"EkonNode",header:"../ekon.h".}
+    ekonType: EkonType 
+    key: cstring
+    keyLen: cuint
+    isKeySpaced: bool
+    len: cuint
+    isStrSpaced: bool
+    isStrMultilined: bool
+    next: ref EkonNode
+    prev: ref EkonNode
+    father: ref EkonNode
+    value: EkonVal  
+  EkonVal = object {.union.}
+    node: ref EkonNode
+    str: cstring
 
-const  MAGIC_NO_CHECK_COMPRESS * = 0x0001000 # Don't check for compressed files 
-const  MAGIC_NO_CHECK_TAR      * = 0x0002000 # Don't check for tar files 
-const  MAGIC_NO_CHECK_SOFT     * = 0x0004000 # Don't check magic entries 
-const  MAGIC_NO_CHECK_APPTYPE  * = 0x0008000 # Don't check application type 
-const  MAGIC_NO_CHECK_ELF      * = 0x0010000 # Don't check for elf details 
-const  MAGIC_NO_CHECK_TEXT     * = 0x0020000 # Don't check for text files 
-const  MAGIC_NO_CHECK_CDF      * = 0x0040000 # Don't check for cdf files 
-const  MAGIC_NO_CHECK_CSV      * = 0x0080000 # Don't check for CSV files 
-const  MAGIC_NO_CHECK_TOKENS   * = 0x0100000 # Don't check tokens 
-const  MAGIC_NO_CHECK_ENCODING * = 0x0200000 # Don't check text encodings 
-const  MAGIC_NO_CHECK_JSON     * = 0x0400000 # Don't check for JSON files 
+type EkonAllocator = object {.importc:"EkonAllocator",header:"../ekon.h".}
 
-type Magic  = object
-type MagicPtr* = ptr Magic
+type EkonValue = object
+  n: ref EkonNode
+  a: ref EkonAllocator
 
-# import the c header file & also make sure to link the dynamic library: libmagic.so
-proc magic_open(i: cint): MagicPtr {.importc, dynlib:libName.}
 
-proc magic_close(p: MagicPtr): void {.importc, dynlib:libName.}
+# ---- Public API Types ----
+type EkonNodeKind* = json.JsonNodeKind
+type EkonNodeObj* = json.JsonNodeObj
+type EkonNode* = json.JsonNode
+# --------------------------
 
-proc magic_load(p: MagicPtr, s:cstring): cint {.importc, dynlib:libName.}
+proc ekonValueParseFast(v: ref EkonValue, s: cstring, err: ref cstring): bool {.importc: "ekonValueParseFast", header: "../ekon.h"}
+proc ekonValueStringify(v: ref EkonValue): cstring {.importc:"ekonValueStringify",header:"../ekon.h"}
+proc ekonValueStringifyToJSON(v: ref EkonValue): cstring {.importc: "ekonValueStringifyToJSON", header: "../ekon.h"}
+
+proc convertEkonNodeToJsonNode(v: ref EkonNode): JsonNode
+proc convertJsonNodeToEkonNode(v: ref JsonNode): EkonNode
+
+# ---- Public API Procs ----
+proc parseEkon*(s: Stream, filename: string = ""): EkonNode
+proc parseEkon*(buffer: string): EkonNode
+proc parseEkon*(buffer: cstring): EkonNode
+
+proc toUgly*(result: var string, node: EkonNode)
+proc pretty(node: EkonNode, index = 2): string
+
+proc newEString*(s: string): EkonNode
+proc newEInt*(n: BiggestInt): EkonNode
+proc newEFloat*(n: float): EkonNode
+proc newEBool*(b: bool): EkonNode
+proc newENull(): EkonNode
+proc newEObject(): EkonNode
+proc newEArray(): EkonNode
+
+proc getStr*(n: EkonNode, default: string = ""): string
+proc getInt*(n: EkonNode, default: int = 0): int
+proc getBiggestInt*(n: EkonNode, default: int = 0): int
+proc getFloat*(n: EkonNode, default: float = 0.0): float
+proc getBool*(n: EkonNode, default: bool = false): bool
+proc getFields*(n: EkonNode, default = initOrderedTable(2)): OrderedTable[string, EkonNode]
+proc getElems*(n: EkonNode, default: seq[EkonNode] = @[]): seq[EkonNode]
+proc add*(father: EkonNode, child: EkonNode)
+proc add*(obj: EkonNode, key: string, val: EkonNode)
+proc `%`*(s: string): EkonNode
+proc `%`*(n: uint): EkonNode
+proc `%`*(n: int): EkonNode
+proc `%`*(n: BiggestUInt): EkonNode
+proc `%`*(n: BiggestInt): EkonNode
+proc `%`*(n: float): EkonNode
+proc `%`*(n: bool): EkonNode
+proc `%`*(keyVals: openArray[tuple[key: string, val: EkonNode]]): EkonNode
+proc `%`*[T](elements: openArray[T]): EkonNode
+proc `%`*[T](table: Table[string, T] | OrderedTable[string, T]): EkonNode
+proc `%`*[T](opt: Option[T])
+proc `%`*[T: object](o: T): EkonNode
+proc `%`*(o: ref object): EkonNode
+proc `%`*(o: enum): EkonNode
+
+proc `==`*(a, b: EkonNode): bool
+
+
+
+# --------------------------
+
 

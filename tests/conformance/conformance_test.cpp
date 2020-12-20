@@ -8,9 +8,16 @@ char *getChar() {
   return c;
 }
 
+#ifdef GDB
+static string rootPath = "tests/conformance/";
+#else
+static string rootPath = "";
+#endif
+
 void EKONCheckerTest() {
-  string data_path = "data/ekonchecker/fail";
-  for (int i = 10; i <= 10; ++i) {
+  string data_path = rootPath + "data/ekonchecker/fail";
+  const int failCounts = 23, passCounts = 16;
+  for (int i = 1; i <= failCounts; ++i) {
     stringstream ss;
     ss << data_path;
     ss << i;
@@ -24,8 +31,8 @@ void EKONCheckerTest() {
     ReleaseAllocator(A);
     delete errorString;
   }
-  data_path = "data/ekonchecker/pass";
-  for (int i = 1; i <= 15; i++) {
+  data_path = rootPath + "data/ekonchecker/pass";
+  for (int i = 1; i <= passCounts; i++) {
     stringstream ss;
     ss << data_path;
     ss << i;
@@ -41,7 +48,7 @@ void EKONCheckerTest() {
   }
 }
 void RoundTripTest() {
-  string data_path = "./data/roundtrip/roundtrip";
+  string data_path = rootPath + "data/roundtrip/roundtrip";
   for (int i = 1; i <= 37; ++i) {
     stringstream ss;
     ss << data_path;
@@ -54,7 +61,7 @@ void RoundTripTest() {
     Value *v = NewValue(A);
     char *err = getChar();
     bool ret = ParseFast(v, json.c_str(), &err);
-    const char *ret_json = Stringify(v);
+    const char *ret_json = StringifyToJSON(v);
     CheckRet(__func__, __LINE__, ss.str(), ret == true);
     CheckRet(__func__, __LINE__, ss.str(), ret_json != 0);
     CheckRet(__func__, __LINE__, ss.str(),
@@ -64,6 +71,7 @@ void RoundTripTest() {
   }
 }
 void StringTestOne(const string &s, const string &e) {
+
   Allocator *A = NewAllocator();
   Value *v = NewValue(A);
   char *err = getChar();
@@ -89,6 +97,7 @@ void StringTest() {
   TEST_STRING("[\"\\u20AC\"]", "\xE2\x82\xAC"); // Euro sign U+20AC
   TEST_STRING("[\"\\uD834\\uDD1E\"]",
               "\xF0\x9D\x84\x9E"); // G clef sign U+1D11E
+  TEST_STRING("[\"\xF0\x9D\x84\x9E\"]", "\xF0\x9D\x84\x9E");
 }
 void DoubleTestOne(const string &s, double e) {
   Allocator *A = NewAllocator();
@@ -265,9 +274,9 @@ void DoubleTest() {
 int main() {
   printf("==================%s==================\n", "conformance_test");
   EKONCheckerTest();
-  /* RoundTripTest(); */
-  /* StringTest(); */
-  /* DoubleTest(); */
-  /* PrintResult(); */
+  RoundTripTest();
+  StringTest();
+  DoubleTest();
+  PrintResult();
   return 0;
 }

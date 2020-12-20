@@ -7,7 +7,7 @@ EKON is a sane alternative for JSON that is geared towards readability and compr
 
 ## README Contents
 
-- [EKON - Ek Object Notation](#ekon---ek-object-notation)
+- [EKON - Ek Object Notation](#ekon - ek-object-notation)
 - [README Contents](#readme-contents)
 - [Features](#features)
 - [Installation](#installation)
@@ -56,39 +56,49 @@ EKON is fully compatible with [JSON](https://json.org) and [JSON5](https://json5
 // single line comments only
 // keyValues can be without quotes
 
-// -- null
+// -- NULL
 nullValue: null  // Yeah! commas are finally optional
 
-// -- strings
+// -- STRINGS
 
 // Unquoted Strings are simple one word strings & have a few conditions:
 //  1. No WhiteSpace characters
-//  2. Only characters allowed will be '_' , '-', '@', '.' 
-//  3. No "//" will be parsed as string. It will be parsed as comments
-//  4. No Reserved words: 'true', 'false', 'null' will be parsed as string
+//  2. characters:
+//      - ':', '{', '}', '[', ']', "'", '"', ',' will be parsed as end of strings
+//      - If you wish to use the above in strings, use quoted strings instead.
+//          Escape characters will not be supported in strings
+//  3. "//" WON'T be parsed as string. It will be parsed as a part of comments
+//  4. Reserved words: 'true', 'false', 'null' will be parsed as string
 //  5. If its a number, it will be parsed as a number & not as string 
 unquotedKey: forSimpleOneWordStrings
-unquotedKey2: john_doe@gmail.com // TIP: Prefer single-quotes for URLs ("'<URL>'")
+unquotedKey2: john_doe@gmail.com // TIP: URLS with ':' has to be under single quotes
 
 // for full support of the above characters, use the following three forms
 doubleQuotes: "You can use 'single-quotes' inside" // prefer single-quotes though
 singleQuotes: 'You can use "double-quotes" inside'
-multilineWithBacktickQuote: `
+multilineUseSingleQuotesAsWell: '
 This is
 a multiline
 string
-`
+'
 'single QuotedKey': 'Prefer single-quotes over double-quotes for keys'
+'multiline
+keys are
+supported': github.com/Himujjal/ekon
 
-// numbers
+// -- NUMBERS
 intNumber: 123
 floatingPointNumber: -0.12345
 positiveSignNumber: +12345.123
 hexadecimalNumber: 0xdecaf
+leadingDecimalPoint: .123 // == 0.123
+trailingDecimalPoint: 123. // == 123.0
+binaryNumber: 0b110011
+underscoreIntegers: 123_456
+underscoreInOctalAndBinaryToo: 0b1001_1001_0000
+Decimal: -.123
 
-trailingDecimal: -.123
-
-// Arrays
+// -- ARRAYS
 arrays: [
     "hello there"
     123
@@ -96,17 +106,20 @@ arrays: [
     [ "another array" ]
 ]
 
-// key-value maps/objects
+// -- KEY-VALUE MAPS (A.K.A.: OBJECTS)
 objectMap: {
     world: 'No comma rules still apply inside'
     arr: [
         "Hello"
         "World"
     ],
+    nestedObj: {
+        inNestedObj: CurlyBracesCompulsory
+    }
     anotherNumber: 123,   // trailiing commas
 }
 
-// JSON backwards compatibility
+// -- JSON backwards compatibility
 "hello": {
     "array": [
         "hello"
@@ -118,9 +131,9 @@ objectMap: {
     "key": "value"
 }
 
-// Compressed form - yeah! unlike YAML, whitespace is insignificant in EKON files
-// compare the minified JSON and EKON. EKON will be always smaller
+// -- Compressed form - yeah! unlike YAML, whitespace is insignificant in EKON files
 stringVal:h arrayVal:[1,2,3,4]numVal:-.1 obj:{k:v}multiline:"hi\nthere\n"
+// -- Comparison with compressed JSON
 "stringVal":"h","arrayVal":[1,2,3,4],"numVal":-0.1,"obj":{"k":"v"},"multiline":"hi\nthere\n"
 
 // } - // As said before. If root structure is an object/map, `{}` is optional.
@@ -261,26 +274,15 @@ TODO!
         - [x] Support for unquoted strings for both keys and values
         - [x] Support for trailing and preceding decimal numbers
         - [x] Support for positive and negative signs
-        - [ ] Support for hex numbers
+        - [x] Support for hex numbers
         - [x] Support for optional commas
         - [x] Support for trailing commas
-        - [x] Support for optional root curly bracket
-        - [ ] Tests, Tests, Tests: parsing
-        - [ ] Error handling using an error message
         - [ ] Stringify to EKON
         - [ ] Stringify to JSON and strict JSON parsing support
         - [ ] Beautify support
         - [ ] Minify support
         - [ ] `\r\n` support for windows
-    - [ ] Write & test the nim code
     - [ ] WebAssembly Support
-- [ ] EKON Language Server
-- [ ] EKON IDE Support
-- [ ] EKON All Language Support
-- [ ] EKON icon
-    - [ ] DevIcons
-- [ ] EKON RPC repo
-
 ## Contribution and Issues:
 
 Contributions are always, always welcome!

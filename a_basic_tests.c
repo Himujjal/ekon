@@ -81,7 +81,9 @@ bool EKON_Parse(Value *srcV, const char *srcEkon) {
 
 int main() {
   printf("-----\n");
-  const char *srcEkon = readFromFile("specs1.ekon");
+  const char *srcEkon =
+      readFromFile("tests/conformance/data/ekonchecker/pass12.ekon");
+  printf("%s\n", srcEkon);
 
   // Allocate new chunk of memory
   Allocator *a = ekonAllocatorNew();

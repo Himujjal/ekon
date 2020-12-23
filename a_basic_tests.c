@@ -30,7 +30,9 @@ void getAndSet(Value *src, Value *des) {
     Value *next = ekonValueBegin(src);
     while (next != 0) {
       Value *v = ekonValueNew(des->a);
-      ekonValueSetKeyFast(v, ekonValueGetKey(next));
+      uint8_t option;
+      const char *key = ekonValueGetKey(next, &option);
+      ekonValueSetKeyFast(v, key, option);
       getAndSet(next, v);
       if (ekonValueObjAddFast(des, v) != true)
         return;
@@ -60,10 +62,11 @@ void getAndSet(Value *src, Value *des) {
     break;
   }
   case EKON_TYPE_STRING: {
-    const char *str = ekonValueGetStr(src);
+    uint8_t option;
+    const char *str = ekonValueGetStr(src, &option);
     if (str == 0)
       return;
-    if (!ekonValueSetStrFast(des, str)) {
+    if (!ekonValueSetStrFast(des, str, option)) {
       return;
     }
     break;
@@ -81,9 +84,9 @@ bool EKON_Parse(Value *srcV, const char *srcEkon) {
 
 int main() {
   printf("-----\n");
-  const char *srcEkon =
-      readFromFile("tests/conformance/data/ekonchecker/pass12.ekon");
-  printf("%s\n", srcEkon);
+  const char *str = "specs1.ekon";
+  const char *srcEkon = readFromFile(str);
+  /* printf("%s\n", srcEkon); */
 
   // Allocate new chunk of memory
   Allocator *a = ekonAllocatorNew();
@@ -100,16 +103,16 @@ int main() {
     return 1;
   }
 
-  const char *src = ekonValueStringify(srcV);
-  printf("**\n");
-  printf("srcEkon Stringified: %s\n", src);
+  /* const char *src = ekonValueStringify(srcV); */
+  printf("---------------\n");
+  /* printf("%s\n", src); */
 
   // Get and Set EKON
   getAndSet(srcV, desV);
 
   // DesEkon
   const char *des = ekonValueStringify(desV);
-  /* printf("desEkon Stringified: %s\n", des); */
+  printf("%s\n", des);
 
   // ReleaseAllocator
   ekonAllocatorRelease(a);

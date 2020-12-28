@@ -21,19 +21,19 @@ unquotedKey2: john_doe@gmail.com // TIP: Prefer single-quotes for URLs ("'<URL>'
 // for full support of the above characters, use the following three forms
 doubleQuotes: "You can use 'single-quotes' inside" // prefer single-quotes though
 singleQuotes: 'You can use "double-quotes" inside'
-multilineWithBacktickQuote: `
+multilineSingleQuote: '
 This is
 a multiline
 string
-`
+'
 'single QuotedKey': 'Prefer single-quotes over double-quotes for keys'
+unicode: \u1011
 
 // numbers
-intNumber: 123
+intNumber: 198
 floatingPointNumber: -0.12345,
 positiveSignNumber: +12345.123
-hexadecimalNumber: 0xF,
-trailingDecimal: -123.,
+hexadecimalNumber: 0xFF
 
 // Arrays
 arrays: [
@@ -50,16 +50,15 @@ objectMap: {
         "Hello"
         "World"
     ],
-    anotherNumber: 123,   // trailiing commas
-    hello: truer
+    anotherNumber: 123,//trailiing commas
+    hello: falsier
 }
 
 
 // Compressed form - yeah! unlike YAML, whitespace is insignificant in EKON files
 // compare the minified JSON and EKON. EKON will be always smaller
-stringVal:hell arrayVal:[1,2,3,4]numVal:-.1 obj:{k:str}multiline:"hi\nthere\n"
-"stringVal":"h","arrayVal":[1,2,3,4],"numVal":-0.1,"obj":{"k":"v"},"multiline":"hi\nthere\n"
+stringVal:hell arrayVal:[1 2 3 4]numVal:-0.1 obj:{k:str}multiline:"hi\nthere\n"
+"stringVal":"hello","arrayVal":[1,2,3,4],"numVal":-0.1,"obj":{"k":"v"},"multiline":"hi\nthere\n"
 
 // } - // As said before. If root structure is an object/map, `{}` is optional.
-
 // Root Array must require `[]` though

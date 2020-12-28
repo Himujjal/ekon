@@ -71,7 +71,6 @@ void RoundTripTest() {
   }
 }
 void StringTestOne(const string &s, const string &e) {
-
   Allocator *A = NewAllocator();
   Value *v = NewValue(A);
   char *err = getChar();

@@ -1,2 +1,36 @@
-//'hello':'nullable..t'
-'true😀😀😀':"intmain(){printf(\"\u00FFHello World\n\");}"
+//nullValue:null
+//unquotedKey:forSimpleOneWordStrings
+//unquotedKey2:john_doe@gmail.com
+//doubleQuotes: "hello this \" \\'..\\' is" // prefer single-quotes though
+singleQuotes: 'You can use \u0110 "double-quotes" inside'
+//yo: 'intmain(){hello:world}'
+multilineSingleQuote: '
+This is
+a multiline
+string'
+//'single QuotedKey':'Prefer single-quotes over double-quotes for keys'
+
+//unicode:\u1011
+//intNumber:100
+//floatingPointNumber:-0.916
+//positiveSignNumber:+10348.219
+//hexadecimalNumber: 0xFF
+
+//arrays: [
+//    "hello there"  
+//    { key: "value" }
+//    567
+//    [ "another array" ]
+//]
+//objectMap: {
+//    world: 'No comma rules still apply inside'
+//    arr: ["Hello""World"],
+//    anotherNumber: 123
+//    hello: falsier
+//}
+
+//stringVal:hell arrayVal:[1 2 3 4]numVal:-0.1 obj:{k:str}multiline:"hi\nthere\n"
+//"stringVal":"hello",
+//"arrayVal":[1,2,3,4],
+//"numVal":-0.1,
+//"obj":{"k":"v"},"multiline":"hi\nthere\n"

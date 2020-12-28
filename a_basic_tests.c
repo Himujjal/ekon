@@ -75,10 +75,10 @@ void getAndSet(Value *src, Value *des) {
 }
 
 bool EKON_Parse(Value *srcV, const char *srcEkon) {
-  char *message;
-  bool success = ekonValueParseFast(srcV, srcEkon, &message);
+  char *errMessage;
+  bool success = ekonValueParseFast(srcV, srcEkon, &errMessage);
   if (success == false)
-    printf("Error Message: %s", message);
+    printf("Error Message: %s", errMessage);
   return success;
 }
 
@@ -104,7 +104,7 @@ int main() {
   }
 
   /* const char *src = ekonValueStringify(srcV); */
-  printf("---------------\n");
+  /* printf("---------------\n"); */
   /* printf("%s\n", src); */
 
   // Get and Set EKON
@@ -112,13 +112,39 @@ int main() {
 
   // DesEkon
   const char *des = ekonValueStringify(desV);
-  printf("%s\n", des);
+  printf("~>stringified:\n%s\n", (des));
+  printf("------beauty--------\n");
+
+  char *err2 = (char *)malloc(100);
+  const char *beautifiedDes = ekonBeautify(des, &err2, true);
+
+  if (beautifiedDes == 0) {
+    printf("Beautification Error: %s\n", err2);
+    return 1;
+  }
+  /* printf("~~>Beautified:%s\n", beautifiedDes); */
+
+  const char *strUnes = ekonValueStringifyUnEscaped(desV);
+  if (strUnes == 0) {
+    printf("Unescape Str Error\n");
+    return 1;
+  }
+  printf("~>Unescaped:%s\n", (strUnes));
+
+  printf("------json------\n");
+  const char *json = ekonValueStringifyToJSON(desV);
+  if (json == 0) {
+    fprintf(stderr, "Error stringifying JSON");
+    return 1;
+  }
+  printf("~~JSON->%s\n", json);
 
   // ReleaseAllocator
   ekonAllocatorRelease(a);
   free((void *)srcEkon);
   /* free((void *)des); */
   /* free((void *)src); */
+  free(err2);
 
   return 0;
 }

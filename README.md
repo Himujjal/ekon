@@ -5,16 +5,14 @@
 EKON is a sane alternative for JSON that is geared towards readability and compressibility. It can be used to write both data-based files and config files.
 ***Ek*** (pronounced 'A(e)k') is a Sanskrit derived word which when translated to English means **one (1)**. EKON represents that philosophy. **Ek (one)** markup language for all uses.
 
-## README Contents
+## Contents
 
-- [EKON - Ek Object Notation](#ekon - ek-object-notation)
-- [README Contents](#readme-contents)
 - [Features](#features)
 - [Installation](#installation)
-- [Syntax & Specification](#syntax-&-specification)
+- [Syntax and Specification](#syntax-and-specification)
 - [Schema Support](#schema-support)
 - [Language Support](#language-support)
-- [IDE Support for `.ekon` files](#ide-support)
+- [IDE Support for `.ekon` files](#ide-support-for-ekon-files)
 - [Contribution and Issues](#contribution-and-issues)
 - [License](#license)
 
@@ -23,13 +21,13 @@ EKON is a sane alternative for JSON that is geared towards readability and compr
 - **Readability:** is kept in mind when designing EKON. So, EKON might feel similar to YAML but without constraining users to tab-based spacing
 - **Compressibility** is a major factor that contributed to JSON being the most popular mode of communication among libraries and frameworks. EKON code is roughly ~40% smaller than JSON while maintaining high readibility.
 - **Backwards Compatibility with JSON** is a factor that is kept in mind while designing EKON. Rename your `.json` file to `.ekon` and unlock a lot of possibilities.
-- **A very fast parser for EKON** is provided thanks to [zzzJSON](https://github.com/dacez/zzzJSON) written in C.
+- **Parser & Stringifier in C** using [zzzJSON](https://github.com/dacez/zzzJSON). Do checkout [zzzJSON](https://github.com/dacez/zzzJSON) written by [dacez](https://github.com/dacez).
 - **Full compatibility with all programming languages** made easy by writing the library in C. WASM support boosts the cause further.
 - **Schema support** using `*.d.ek` (EkScript definition) or `*.d.ts` (TypeScript definition files) files. [More on this](#schema-support)
 - **Optional Commas** not only saves you keystrokes and filesize, but also improves readibility
 - **Optional Root Object Curly Braces** also helps improve readibility
 
-## Installation:
+## Installation
 
 For Windows {Through Scoop only (To avoid multiple binaries)}:
 ```sh
@@ -45,7 +43,7 @@ TODO!
 ```
 To compile from source, check: [Compiling from Source](#compiling-repo)
 
-## Syntax & Specification:
+## Syntax and Specification
 
 EKON is fully compatible with [JSON](https://json.org) and [JSON5](https://json5.org). Here is the whole specification of EKON at one glance from [specs.ekon](./specs.ekon).
 
@@ -141,7 +139,7 @@ stringVal:h arrayVal:[1,2,3,4]numVal:-.1 obj:{k:v}multiline:"hi\nthere\n"
 // Root Array must require `[]` though
 ```
 
-## Style Guide:
+## Style Guide
 
 Try to adher to these rules while writing proper `EKON` based configs:
 These don't matter for minified form. `Formatter` & `Minifier` APIs
@@ -158,39 +156,23 @@ will soon be available (TODO!).
     EKON is anyways whitespace agnostic.
 7. Prefer `0` for decimal based numbers whenever possible 
 
-
 ## Schema Support
 
-EKON supports schema based on a `.d.ek` (EkScript) or `.d.ts` (TypeScript) definition files. Simply write the type
-of the `.ekon` file as `type ekonSpecs = ..` in the global namespace. The type name should start with `ekon` followed by the name of the file.
+EKON supports schema based on a ~~`.d.ek` (EkScript) or~~ `.d.ts` (TypeScript) definition files or directly inside the `.ekon` file.
+This schema is extremely used for IDEs and text-editors or for CI/CD. But of course it will have no meaning while parsing.
 
-The `.d.ek` or `.d.ts` follow the TypeScript type definition specification.
+***Steps for Schema (directly inside the file):***
 
-For manual type declaration location, add `/// file: specs.d.ek | ekonSpecs` on the first line of the `.ekon` file.
+For this step, inside the [specs.ekon](./specs.ekon) file, write your schema definition inside backticks (`` ` ``).
+This first backtick must be the first non-whitespace character in the EKON file. The **root** type is the root Node Type.
+Everything inside the backticks support TypeScript based definitions, partially.
 
-If you want to have the type declaration in the `.ekon` file, declare the definition under triple slash comments (`///`) until your declaration
-is not complete. Specification for this is the TypeScript type specs:
-
-If the root object 
+*specs.ekon:*
 ```typescript
-/// root = {
-/// key: string,
-/// ...
-/// }
-```
-or
-
-if the root object/map is an array:
-```typescript
-/// [string, { key: number }, string[] ]
-```
-
-Example:
-
-```typescript
-// specs.d.ek or specs.d.ts
-
-type root = {
+`
+objectMapType = { world: string, arr: string[], anotherNumber: number };
+arraysType = [string, number, {key: string}, string[]];
+root = {
     unquotedKey: string,
     singleQuotes: string,
     multilineStrings: string,
@@ -200,18 +182,30 @@ type root = {
     trailingDecimlPointNumber: number,
     positiveSignNumber: number,
     hexadecimalNumber: number,
-    arrays: [ string, number, { key: string }, string[]],
-    objectMap: { world: string, arr: string[], anotherNumber: number }
+    arrays: arraysType,
+    objectMap: objectType,
     hello: { array: string, "number": number },
     key: number,
     jsonObject: { key: string }   
 }
+`
+//... rest of the .ekon file
 ```
 
-## Language Support:
+***Steps for Schema in a `.d.ts` file:***
 
-- [ ] C ([This Repo - **c_api** folder](./c)) (Yes it works without Nim compiler)
-- [ ] Nim ([This Repo](./))
+Let's say the definition of `specs.ekon` file is present as a *type* in [specs.d.ts](./specs.d.ts) file.
+Now, inside your `specs.ekon` file in the first line (don't forget the backtick):
+
+```typescript
+`root = import('./specs.d.ts').specsEkonSchema`
+```
+
+## Language Support
+
+- [ ] C ([ekon.h](./ekon.h)) (Yes it works without Nim compiler)
+- [ ] Nim ([This Repo](./.ekon.nim))
+- [ ] [Go](./ekon.go)
 - [ ] ~~EkScript~~
 - [ ] ~~C++~~
 - [ ] ~~Javascript/TypeScript~~
@@ -219,8 +213,9 @@ type root = {
     - [ ] ~~ekon.js (Pure JS) - size optimized~~
 - [ ] ~~Python~~
 - [ ] ~~Rust~~
+    - [ ] ~~ekon-rust~~
+    - [ ] ~~serde-rust~~
 - [ ] ~~Dart~~
-- [ ] ~~Go~~
 - [ ] ~~PHP~~
 - [ ] ~~Ruby~~
 - [ ] ~~Lua~~
@@ -237,7 +232,7 @@ type root = {
 If any language is missing please create a pull request/file an issue.
 
 
-## IDE Support for `.ekon` files
+## IDE Support for `ekon` files
 
 - [ ] ~~Language Server~~
 - [ ] ~~Vim~~
@@ -265,7 +260,7 @@ TODO!
 
 TODO!
 
-## ROADMAP & TODOs:
+## ROADMAP & TODOs
 
 - [ ] Nim + C repo: 
     - [ ] Complete the C library
@@ -283,7 +278,8 @@ TODO!
         - [ ] Minify support
         - [ ] `\r\n` support for windows
     - [ ] WebAssembly Support
-## Contribution and Issues:
+
+## Contribution and Issues
 
 Contributions are always, always welcome!
 
@@ -318,7 +314,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
-
-
-
-

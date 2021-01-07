@@ -1,4 +1,4 @@
-type root = {
+type someType = {
   unquotedKey: string;
   singleQuotes: string;
   multilineStrings: string;

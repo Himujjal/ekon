@@ -1,6 +1,13 @@
 {
-  "watch": ["a_basic_tests.c", "ekon.h", "*.ekon"],
+  "watch": [
+    "a_basic_tests.c",
+    "ekon.c",
+    "ekon.h",
+    "hashtable.c",
+    "hashtable.h",
+    "*.ekon"
+  ],
   "ext": "c,h,ekon",
-  "exec": "clear && gcc a_basic_tests.c -o main && ./main",
+  "exec": "clear && gcc -Wall -DDEBUG_FUNC a_basic_tests.c ekon.c hashtable.c -o main && ./main",
   "quiet": true
 }

@@ -1,5 +1,0 @@
-{
-  "watch": ["ekon.nim", "../ekon.h", "*.ekon"],
-  "ext": "c,h,ekon,nim",
-  "exec": "clear && nim c ekon.nim && ./ekon.out"
-}

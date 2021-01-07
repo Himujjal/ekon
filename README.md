@@ -154,7 +154,6 @@ will soon be available (TODO!).
     b. Objects should have put into single line "with commas" for under 80 chars lines
 6. For nested data structures, prefer prepending at least 2 whitespace. No rule beyond that.
     EKON is anyways whitespace agnostic.
-7. Prefer `0` for decimal based numbers whenever possible 
 
 ## Schema Support
 
@@ -294,7 +293,7 @@ You can find the same in the [Wiki]() section also.
 ```
 MIT License
 
-Copyright (c) 2020 EK
+Copyright (c) 2020 EKON
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

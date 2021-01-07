@@ -19,15 +19,13 @@
 - [x] handle missing values. same as the previous one 
 - [ ] Handle unicode support for beautification
     - [x] Get a stringified version of the DS with unescaped unicodes (EKON & JSON)
-- [ ] TOMORROW: Handle duplicate fields
+- [x] TOMORROW: Handle duplicate fields
     - [ ] Make the hashset allocation in the allocator 
     - [ ] Error messages in ekonValueSetKey**..
     - [ ] Replace mode when setting the value of a key: check if key is not null, then check if node is object, then set the value of the node to the function's passed value
     - [ ] In replace mode, pass a `noDuplicateKey` value to ensure settting duplicate key value is not permitted. 
     - [ ] Also make sure to have `noDuplicateKey`. If key is already present return the node pointer. 
     - [ ] copyHashset function
-- [ ] Update `ekonCheckStr` function to match `ekonConsumeStr`
-- [ ] Remove support for trailing and leading decimal point
 - [ ] Add support for underscore in integers (`1_00_000`)
 - [ ] Add binary number support: [Binary support for numbers](https://stackoverflow.com/a/13107)
 - [ ] Add support for octal number
@@ -35,14 +33,11 @@
 - [ ] Add support for roundtrip preservation of comments, indentation etc etc.
  like [this comment](https://www.reddit.com/r/ProgrammingLanguages/comments/kevu2c/ekon_a_sane_json_alternative_need_strong/gg72hi0?utm_source=share&utm_medium=web2x&context=3)
 - [ ] Provide a tab-based beautify option & optional preserve comments section
-- [ ] Parsing of Schema with the backticks
-- [ ] Stringifying to the correct string value
-    - [ ] EKON
-    - [ ] JSON
+- [x] Parsing of Schema with the backticks
+- [x] Stringifying to the correct string value
+    - [x] EKON
+    - [x] JSON
+- [ ] Schema generation
 
-# Features
-
-- [ ] Add support for roundtrip preservation of comments, indentation etc etc.
- like [this comment](https://www.reddit.com/r/ProgrammingLanguages/comments/kevu2c/ekon_a_sane_json_alternative_need_strong/gg72hi0?utm_source=share&utm_medium=web2x&context=3)
 
 

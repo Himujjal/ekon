@@ -1,11 +1,12 @@
 #include "./ekon.h"
 #include "./lsp/ekon_schema.h"
 #include "./tests/c_api/utils.h"
+#include "hashmap.h"
 #include <stdio.h>
 #include <string.h>
 
 // Get the EKON and Set some EKON
-void getAndSet(Value *src, Value *des) {
+void getAndSet(EkonValue *src, EkonValue *des) {
   // Set EKON Type
   const EkonType *t;
   t = ekonValueType(src);
@@ -15,9 +16,9 @@ void getAndSet(Value *src, Value *des) {
   switch (*t) {
   case EKON_TYPE_ARRAY: {
     ekonValueSetArray(des);
-    Value *next = ekonValueBegin(src);
+    EkonValue *next = ekonValueBegin(src);
     while (next != 0) {
-      Value *v = ekonValueNew(des->a);
+      EkonValue *v = ekonValueNew(des->a);
       getAndSet(next, v);
       if (ekonValueArrayAddFast(des, v) != true) {
         return;
@@ -28,13 +29,14 @@ void getAndSet(Value *src, Value *des) {
   }
   case EKON_TYPE_OBJECT: {
     ekonValueSetObj(des); // init
-    Value *next = ekonValueBegin(src);
+    EkonValue *next = ekonValueBegin(src);
     while (next != 0) {
-      Value *v = ekonValueNew(des->a);
+      EkonValue *v = ekonValueNew(des->a);
       uint8_t option;
       uint32_t keyLen = 0;
       const char *key = ekonValueGetKey(next, &option, &keyLen);
-      if (src->n->keySet != 0 && hashsetIsMember(src->n->keySet, key, keyLen)) {
+      if (src->n->keymap != 0 &&
+          ekonHashmapGet(src->n->keymap, key, keyLen) != NULL) {
         // key is already present
       }
       ekonValueSetKeyFast(v, key, option, true);
@@ -79,7 +81,7 @@ void getAndSet(Value *src, Value *des) {
   }
 }
 
-bool EKON_Parse(Value *srcV, const char *srcEkon) {
+bool EKON_Parse(EkonValue *srcV, const char *srcEkon) {
   char *errMessage = NULL;
   char *schema = NULL;
   bool success = ekonValueParseFast(srcV, srcEkon, &errMessage, &schema);
@@ -91,15 +93,16 @@ bool EKON_Parse(Value *srcV, const char *srcEkon) {
 }
 
 int main() {
+  printf("Size of EkonNode: %ld\n--", sizeof(EkonNode) + sizeof(EkonHashmap));
   const char *str = "specs1.ekon";
   const char *srcEkon = readFromFile(str);
   /* printf("%s\n", srcEkon); */
   // Allocate new chunk of memory
-  Allocator *a = ekonAllocatorNew();
+  EkonAllocator *a = ekonAllocatorNew();
 
   // Add a new value
-  Value *srcV = ekonValueNew(a);
-  Value *desV = ekonValueNew(a);
+  EkonValue *srcV = ekonValueNew(a);
+  EkonValue *desV = ekonValueNew(a);
 
   // ... EKON ..
   printf("----- Parsing... ------\n");

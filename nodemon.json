@@ -8,6 +8,6 @@
     "*.ekon"
   ],
   "ext": "c,h,ekon",
-  "exec": "clear && gcc -Wall -DDEBUG_FUNC a_basic_tests.c ekon.c hashtable.c -o main && ./main",
+  "exec": "clear && gcc -Wall -DDEBUG_FUNC a_basic_tests.c ekon.c -o main && ./main",
   "quiet": true
 }

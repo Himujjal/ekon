@@ -19,22 +19,42 @@ This is the Node of the data structure.
 ```c
 struct EkonNode {
     // Type of the Node
-    char type;
-
-    // the key of that node and its length
-    const char* key;
+    EkonType type;
+    const char* key; // the key of that node and its length
     uint32_t keyLen;
-
     // The data structure that holds the value of the node
     union { struct EkonNode *node; const char* str; } value;
-
-    // The length of the str
-    uint32_t len;
-
+    uint32_t len; // The length of the str
     struct EkonNode* next; // next node in line
     struct EkonNode* prev; // prev node
     struct EkonNode* father; // parent node
     struct EkonNode* end; // end node of the objects
+}
+```
+# Alternative DS
+
+```c
+struct EkonNode {
+    EkonType type; // ARRAY, OBJECT, INT, FLOAT, STRING, NULL
+    const char* key; // the key
+    uint32_t keyLen; // length of the key
+
+    union {
+        struct EkonNode* node;
+        const char* str; // string value
+        float fNum; // store the int and float directly
+        int iNum; // store int directly 
+    } value; // value of the node if its a compound node
+    uint32_t len; // length of str or object or array
+
+    struct EkonNode* next; // next node in line
+    struct EkonNode* parent; // parent node
+
+    EkonHashMap* map; // hashmap if object
+
+    // address of (address of this node in the `node's hash map`)
+    // (*addrInMap
+    struct EkonNode** addrInMap;
 }
 ```
 
@@ -76,5 +96,6 @@ struct EkonString {
     b. `EKON.stringify()`: Takes in the `EKON` data structure and returns a string or character array
     c. `EKON.minify()`: Takes in a string or character array and returns the minified version of the string 
     d. `EKON.stringify_parse()`: First stringifies the `EKON` data structure and then returns the parsed `EKON` data structure
+
 
 

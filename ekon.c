@@ -1,62 +1,248 @@
 #include "ekon.h"
-#include "hashtable.h"
+#include "hashmap.h"
+
 // store constants in char arrays
 static const char *ekonStrTrue = "true";
 static const char *ekonStrFalse = "false";
 static const char *ekonStrNull = "null";
 
+// check if character is quote
 bool ekonIsQuote(const char c) { return c == '\'' || c == '"'; }
+
+// check if character is a bracket
 bool ekonIsBracket(const char c) {
-  return (c == '{' || c == '}' || c == ']' || c == '[');
+  switch (c) {
+  case '{':
+  case '}':
+  case ']':
+  case '[':
+    return true;
+  default:
+    return false;
+  }
 }
-// <space> \t \n \r [ ] { } ' " , : \0
+
+// check if character is among: [<space>\t\n\r[]{}'",:\0]
 bool ekonIsNonUnquoteStrChar(const char c) {
-  return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '[' ||
-         c == ']' || c == '{' || c == '}' || c == '"' || c == '\'' ||
-         c == '\0' || c == ',' || c == ':';
+  switch (c) {
+  case ' ':
+  case '\t':
+  case '\n':
+  case '\r':
+  case '[':
+  case ']':
+  case '{':
+  case '}':
+  case '"':
+  case '\'':
+  case '\0':
+  case ',':
+  case ':':
+    return true;
+  default:
+    return false;
+  };
 }
 
 // copy a string from one pointer to another
-void ekonCopy(const char *src, uint32_t len, char *des) {
+void ekonCopy(const char *src, const u32 len, char *des) {
   memcpy(des, src, len);
 }
 
-char *ekonCopySchema(const char *src, uint32_t len) {
+// copy schema from src and return the new character array
+char *ekonCopySchema(const char *src, const u32 len) {
   char *schema = (char *)malloc(sizeof(char) * (len + 1));
   memcpy(schema, src, len);
   schema[len] = '\0';
   return schema;
 }
 
-uint32_t ekonStrLen(const char *str) { return (uint32_t)strlen(str); }
+// length of string
+u32 ekonStrLen(const char *str) { return (u32)strlen(str); }
 
-int ekonStrToInt(const char *str) { return atoi(str); }
-
-long ekonStrToLong(const char *str) { return atol(str); }
-long long ekonStrToLongLong(const char *str) { return atoll(str); }
-double ekonStrToDouble(const char *str) { return atof(str); }
-uint32_t ekonIntToStr(int n, char *buff) { return snprintf(buff, 12, "%d", n); }
-uint32_t ekonLongToStr(long n, char *buff) {
-  return snprintf(buff, 24, "%ld", n);
+// math.pow
+float power(float b, int e) {
+  float final = b;
+  int e2 = e;
+  if (e < 0)
+    e2 = -e;
+  for (int i = 0; i < e2; i++)
+    final *= b;
+  return e2 < 0 ? 1 / final : final;
 }
-uint32_t ekonLongLongToStr(long long n, char *buff) {
+
+int parseInt(const char *str, int len) {
+  int final = 0;
+  int counter = 0;
+
+  int i;
+  for (i = len - 1; i >= 0; i--) {
+    if (str[i] >= '0' && str[i] <= '9') {
+      final += power(10, counter) * (str[i] - '0');
+      counter++;
+    }
+  }
+
+  if (str[i + 1] == '-')
+    final = -final;
+  return final;
+}
+
+/* str->int convert, returns false for error, outInt stores converted val */
+bool ekonStrToInt(const char *str, int *outInt) {
+  u32 len = 0;
+  if (ekonCheckNum(str, &len) == false)
+    return false;
+  *outInt = parseInt(str, len) == false;
+  return true;
+}
+
+/* str->long convert, returns false for error, outInt stores converted val */
+bool ekonStrToLong(const char *str, long *outLong) {
+  u32 counter = 0;
+  u32 i = 0;
+  u32 len = 0;
+  long ii = 0;
+
+  if (ekonCheckNum(str, &len) == false)
+    return false;
+
+  for (i = len - 1; i >= 0; i--) {
+    if ((str[i] >= '0' && str[i] <= '9')) {
+      ii += power(10, counter) * (str[i] - '0');
+      counter++;
+    }
+  }
+  if (str[i + 1] == '-')
+    *outLong = -ii;
+  return true;
+}
+
+/* str->ll convert, returns false for error, outInt stores converted val */
+bool ekonStrToLongLong(const char *str, long long *outLongLong) {
+  u32 counter = 0;
+  u32 i = 0;
+  u32 len = 0;
+  long long ii = 0;
+
+  if (ekonCheckNum(str, &len) == false)
+    return false;
+
+  for (i = len - 1; i >= 0; i--) {
+    if ((str[i] >= '0' && str[i] <= '9')) {
+      ii += power(10, counter) * (str[i] - '0');
+      counter++;
+    }
+  }
+  if (str[i + 1] == '-')
+    *outLongLong = -ii;
+  return true;
+}
+
+/* str->double convert, returns false for error, outInt stores converted val */
+bool ekonStrToDouble(const char *str, double *outDouble) {
+  u32 len = 0;
+  if (ekonCheckNum(str, &len) == false)
+    return false;
+  bool isNegative = 0;
+  bool isExpNegative = 0;
+  int intRange[2] = {-1, -1};
+  int decRange[2] = {-1, -1};
+  int expRange[2] = {-1, -1};
+  int i = 0;
+
+  if (str[i] == '-' || str[i] == '+') {
+    if (str[i] == '-')
+      isNegative = 1;
+    i++;
+  }
+
+  intRange[0] = i;
+  while (i <= len) {
+    if ((str[i] >= '0' && str[i] <= '9') || str[i] == '_')
+      i++;
+    else {
+      intRange[1] = i - 1;
+      break;
+    }
+  }
+
+  if (str[i] == '.') {
+    i++;
+    decRange[0] = i;
+    while (i <= len) {
+      if ((str[i] >= '0' && str[i] <= '9') || str[i] == '_')
+        i++;
+      else {
+        decRange[1] = i - 1;
+        break;
+      }
+    }
+  }
+
+  if (str[i] == 'e' || str[i] == 'E') {
+    i++;
+    if (str[i] == '-' || str[i] == '+') {
+      if (str[i] == '-')
+        isExpNegative = true;
+      i++;
+    }
+
+    expRange[0] = i;
+    while (i <= len) {
+      if ((str[i] >= '0' && str[i] <= '9') || str[i] == '_')
+        i++;
+      else {
+        expRange[1] = i - 1;
+        break;
+      }
+    }
+  }
+
+  int integer = parseInt(str + intRange[0], intRange[1] - intRange[0] + 1);
+  int decimal = parseInt(str + decRange[0], decRange[1] - decRange[0] + 1);
+  int exp = parseInt(str + expRange[0], expRange[1] - expRange[0] + 1);
+
+  int decimalRange = 0;
+  for (int i = decRange[0]; i <= decRange[1]; i++) {
+    if (str[i] >= '0' && str[i] <= '9')
+      decimalRange--;
+  }
+
+  float final = (integer + power(10, decimalRange) * decimal) * power(10, exp);
+
+  return isNegative ? -final : final;
+}
+
+/* int->str  */
+u32 ekonIntToStr(int n, char *buff) { return snprintf(buff, 12, "%d", n); }
+
+/* long->str  */
+u32 ekonLongToStr(long n, char *buff) { return snprintf(buff, 24, "%ld", n); }
+
+/* longLong->str  */
+u32 ekonLongLongToStr(long long n, char *buff) {
   return snprintf(buff, 24, "%lld", n);
 }
-uint32_t ekonDoubleToStr(double n, char *buff) {
+
+/* double->str  */
+u32 ekonDoubleToStr(double n, char *buff) {
   return snprintf(buff, 32, "%.17g", n);
 }
 
 /**
- * mes - The pointer to the character array for error messages
- * line - line of the file where the error occured
- * pos - position of the file where the error occured
- * c - character where the error occured
+ * @brief: error generator as string
+ * @param outMessage - pointer to the character array
+ *                  - message will be of format: "<line>:<pos>:<char>"
+ * @param s - start of the original string. NOTE: s[0] won't give you start of
+ * the error point
+ * @param index - index in `s` where the error occured
+ * @returns false - for no reasons TODO: check void vs bool performance
  * */
-bool ekonError(char **message, struct EkonAllocator *a, const char *s,
-               uint32_t index) {
-  uint32_t pos = 1;
-  uint32_t line = 1;
-  uint32_t cursor = 0;
+bool ekonError(char **outMessage, const char *s, const u32 index) {
+  u32 pos = 1;
+  u32 line = 1;
+  u32 cursor = 0;
   while (s[cursor] != 0 && cursor != index) {
     if (s[cursor] == '\n') {
       pos = 0;
@@ -67,23 +253,32 @@ bool ekonError(char **message, struct EkonAllocator *a, const char *s,
   }
   pos--;
 
-  *message = ekonAllocatorAlloc(a, sizeof(char) * 50);
+  // allocate memory for the message
+  *outMessage = malloc(sizeof(char) * 50);
 
   // error messages will be of format: "<line>:<pos>:<character>" with `:` as
   // delimiter
   if (s[index] == 0)
-    snprintf(*message, 50, "%d:%d:0", line, pos);
+    snprintf(*outMessage, 50, "%d:%d:0", line, pos);
   else
-    snprintf(*message, 50, "%d:%d:%c", line, pos, s[index - 1]);
+    snprintf(*outMessage, 50, "%d:%d:%c", line, pos, s[index - 1]);
 
   return false;
 }
 
-bool ekonDuplicateKeyError(char **message, struct EkonAllocator *a,
-                           const char *s, uint32_t index, uint32_t keyLen) {
-  uint32_t pos = 1;
-  uint32_t line = 1;
-  uint32_t cursor = 0;
+/**
+ * @brief: duplicate key error generator as string
+ * @param outMessage - pointer to the character array
+ *                  - message will be of format: "<line>:<pos>:<key>:<message>"
+ * @param s - start of the original string. NOTE: s[0] won't give you start of
+ * the error point
+ * @param index - index in `s` where the error occured
+ * */
+bool ekonDuplicateKeyError(char **outMessage, const char *s, const u32 index,
+                           const u32 keyLen) {
+  u32 pos = 1;
+  u32 line = 1;
+  u32 cursor = 0;
   while (s[cursor] != 0 && cursor != index) {
     if (s[cursor] == '\n') {
       pos = 0;
@@ -93,19 +288,19 @@ bool ekonDuplicateKeyError(char **message, struct EkonAllocator *a,
     cursor++;
   }
 
-  *message = ekonAllocatorAlloc(a, sizeof(char) * (100 + keyLen));
-  char *key = ekonAllocatorAlloc(a, (sizeof(char) * (keyLen + 1)));
+  *outMessage = (char *)malloc(sizeof(char) * (100 + keyLen));
+  char *key = (char *)malloc((sizeof(char) * (keyLen + 1)));
   ekonCopy(s + index, keyLen, key);
   key[index] = '\0';
 
   // <line>:<pos>:<key>:<message>
-  snprintf(*message, 100, "%d:%d:%s:Duplicate key", line, pos, key);
+  snprintf(*outMessage, 100, "%d:%d:%s:Duplicate key", line, pos, key);
   return false;
 }
 
-// compare strings
-bool ekonStrIsEqual(const char *a, const char *b, uint32_t len) {
-  uint32_t i;
+// check if two strings are equal
+bool ekonStrIsEqual(const char *a, const char *b, u32 len) {
+  u32 i;
   for (i = 0; EKON_LIKELY(i < len); ++i) {
     if (EKON_LIKELY(a[i] != b[i]))
       return false;
@@ -116,11 +311,10 @@ bool ekonStrIsEqual(const char *a, const char *b, uint32_t len) {
 }
 
 // compare string with lengths
-bool ekonStrIsEqualLen(const char *a, uint32_t a_len, const char *b,
-                       uint32_t b_len) {
+bool ekonStrIsEqualLen(const char *a, u32 a_len, const char *b, u32 b_len) {
   if (EKON_LIKELY(a_len != b_len))
     return false;
-  uint32_t i;
+  u32 i;
   for (i = 0; EKON_LIKELY(i < a_len); ++i) {
     if (EKON_LIKELY(a[i] != b[i]))
       return false;
@@ -128,46 +322,43 @@ bool ekonStrIsEqualLen(const char *a, uint32_t a_len, const char *b,
   return true;
 }
 
-// Init new Allocator - API
-struct EkonAllocator *ekonAllocatorNew() {
-  void *ptr = ekonNew(sizeof(struct EkonAllocator) + sizeof(struct EkonANode) +
+// Init new Allocator - this is where every memory object will be stored
+EkonAllocator *ekonAllocatorNew() {
+  void *ptr = ekonNew(sizeof(EkonAllocator) + sizeof(EkonANode) +
                       ekonAllocatorInitMemSize);
   if (EKON_UNLIKELY(ptr == 0))
     return 0;
-  struct EkonAllocator *alloc = (struct EkonAllocator *)ptr;
-  alloc->root =
-      (struct EkonANode *)((char *)ptr + sizeof(struct EkonAllocator));
+  EkonAllocator *alloc = (EkonAllocator *)ptr;
+  alloc->root = (EkonANode *)((char *)ptr + sizeof(EkonAllocator));
   alloc->end = alloc->root;
 
   alloc->root->size = ekonAllocatorInitMemSize;
-  alloc->root->data =
-      (char *)ptr + sizeof(struct EkonAllocator) + sizeof(struct EkonANode);
+  alloc->root->data = (char *)ptr + sizeof(EkonAllocator) + sizeof(EkonANode);
   alloc->root->pos = 0;
   alloc->root->next = 0;
   return alloc;
 }
 
 // Free Allocator - Release
-void ekonAllocatorRelease(struct EkonAllocator *alloc) {
-  struct EkonANode *next = alloc->root->next;
+void ekonAllocatorRelease(EkonAllocator *rootAlloc) {
+  EkonANode *next = rootAlloc->root->next;
   while (EKON_LIKELY(next != 0)) {
-    struct EkonANode *nn = next->next;
+    EkonANode *nn = next->next;
     ekonFree((void *)next);
     next = nn;
   }
-  ekonFree((void *)alloc);
+  ekonFree((void *)rootAlloc);
 }
 
 // append Child to the Allocator
-bool ekonAllocatorAppendChild(uint32_t init_size, struct EkonAllocator *alloc) {
-  //
-  void *ptr = ekonNew(sizeof(struct EkonANode) + init_size);
+bool ekonAllocatorAppendChild(u32 init_size, EkonAllocator *alloc) {
+  void *ptr = ekonNew(sizeof(EkonANode) + init_size);
   if (EKON_UNLIKELY(ptr == 0))
     return false;
 
-  struct EkonANode *node = (struct EkonANode *)ptr;
+  EkonANode *node = (EkonANode *)ptr;
   node->size = init_size;
-  node->data = (char *)ptr + sizeof(struct EkonANode);
+  node->data = (char *)ptr + sizeof(EkonANode);
   node->pos = 0;
   node->next = 0;
   alloc->end->next = node;
@@ -176,9 +367,9 @@ bool ekonAllocatorAppendChild(uint32_t init_size, struct EkonAllocator *alloc) {
 }
 
 // allocate Allocator
-char *ekonAllocatorAlloc(struct EkonAllocator *alloc, uint32_t size) {
-  struct EkonANode *currNode = alloc->end;
-  uint32_t s = currNode->size;
+char *ekonAllocatorAlloc(EkonAllocator *alloc, u32 size) {
+  EkonANode *currNode = alloc->end;
+  u32 s = currNode->size;
   if (EKON_UNLIKELY(currNode->pos + size > s)) {
     s *= ekonDelta;
     while (EKON_UNLIKELY(size > s))
@@ -192,25 +383,29 @@ char *ekonAllocatorAlloc(struct EkonAllocator *alloc, uint32_t size) {
   return ret;
 }
 
-static struct EkonString *ekonStringCache = 0;
+// consume a comment. both rangin multiple lines and single lines
+bool ekonConsumeComment(const char *s, u32 *index);
 
-struct EkonString *ekonStringNew(struct EkonAllocator *alloc,
-                                 uint32_t initSize) {
-  struct EkonString *str = (struct EkonString *)ekonAllocatorAlloc(
-      alloc, sizeof(struct EkonString) + initSize);
+static EkonString *ekonStringCache = 0;
+
+// get a new string object
+EkonString *ekonStringNew(EkonAllocator *alloc, u32 initSize) {
+  EkonString *str =
+      (EkonString *)ekonAllocatorAlloc(alloc, sizeof(EkonString) + initSize);
   if (EKON_UNLIKELY(str == 0))
     return 0;
   str->size = initSize;
-  str->data = (char *)str + sizeof(struct EkonString);
+  str->data = (char *)str + sizeof(EkonString);
   str->pos = 0;
   str->a = alloc;
   return str;
 }
 
-void ekonStringReset(struct EkonString *str) { str->pos = 0; }
+void ekonStringReset(EkonString *str) { str->pos = 0; }
 
-bool ekonStringAppendStr(struct EkonString *str, const char *s, uint32_t size) {
-  uint32_t srcS = str->size;
+// append char* to EkonString. returns false if error
+bool ekonStringAppendStr(EkonString *str, const char *s, u32 size) {
+  u32 srcS = str->size;
   if (EKON_UNLIKELY(str->pos + size > srcS)) {
     srcS += ekonDelta;
     while (EKON_UNLIKELY(str->pos + size > srcS))
@@ -227,8 +422,9 @@ bool ekonStringAppendStr(struct EkonString *str, const char *s, uint32_t size) {
   return true;
 }
 
-bool ekonStringAppendChar(struct EkonString *str, const char c) {
-  uint32_t srcS = str->size;
+// append char to EkonString, returns false if error
+bool ekonStringAppendChar(EkonString *str, const char c) {
+  u32 srcS = str->size;
   if (EKON_UNLIKELY(str->pos + 1 > srcS)) {
     srcS *= ekonDelta;
     const char *srcD = str->data;
@@ -243,11 +439,14 @@ bool ekonStringAppendChar(struct EkonString *str, const char c) {
   return true;
 }
 
-bool ekonStringAppendEnd(struct EkonString *str) {
+// append '\0' to EkonString. returns false if error
+bool ekonStringAppendEnd(EkonString *str) {
   return ekonStringAppendChar(str, 0);
 }
 
-const char *ekonStringStr(struct EkonString *str) { return str->data; }
+const char *ekonStringStr(EkonString *str) { return str->data; }
+
+// ----------------- DEBUG FUNCTIONS ------------------------
 
 void debPrintEkonType(const EkonType type) {
 #ifdef DEBUG_FUNC
@@ -274,7 +473,7 @@ void debPrintEkonType(const EkonType type) {
 #endif
 }
 
-void debPrintNodeMin(const struct EkonNode *node) {
+void debPrintNodeMin(const EkonNode *node) {
 #ifdef DEBUG_FUNC
   if (node != NULL || node != 0) {
     printf("{EkonType:");
@@ -284,8 +483,7 @@ void debPrintNodeMin(const struct EkonNode *node) {
     printf("NULL");
 #endif
 }
-void debPrintStrM(const char *s, uint32_t index, const char *mes,
-                  uint32_t size) {
+void debPrintStrM(const char *s, u32 index, const char *mes, u32 size) {
 #ifdef DEBUG_FUNC
   if (size == 0)
     size = strlen(s);
@@ -302,11 +500,13 @@ void debPrintChar(const char c) {
   printf("c:%c\n", c);
 #endif
 }
+
 void debPrintCharM(const char c, const char *mes) {
 #ifdef DEBUG_FUNC
   printf("%s~~>c:%c\n", mes, c);
 #endif
 }
+
 void debPrintBool(const bool b) {
 #ifdef DEBUG_FUNC
   printf("%s\n", b == 1 ? "true" : "false");
@@ -318,7 +518,8 @@ void debPrintBoolM(const bool b, const char *mes) {
   printf("%s~>%s\n", mes, b == 1 ? "true" : "false");
 #endif
 }
-void printOption(uint8_t option, char *delimiter) {
+
+void printOption(u16 option, char *delimiter) {
 #define TORF(x) (((option & (x)) != 0) == true ? "true" : "false")
   printf("%sisKeySpaced:%s,", delimiter, TORF(EKON_IS_KEY_SPACED));
   printf("%sisKeyMultilined:%s,", delimiter, TORF(EKON_IS_KEY_MULTILINED));
@@ -326,7 +527,8 @@ void printOption(uint8_t option, char *delimiter) {
   printf("%sisStrMultilined:%s,", delimiter, TORF(EKON_IS_STR_MULTILINED));
 #undef TORF
 }
-void debPrintStr(const char *s, uint32_t index, uint32_t size) {
+
+void debPrintStr(const char *s, u32 index, u32 size) {
 #ifdef DEBUG_FUNC
   if (size == 0)
     size = strlen(s);
@@ -337,7 +539,7 @@ void debPrintStr(const char *s, uint32_t index, uint32_t size) {
   free(des);
 #endif
 }
-void debPrintStrMin(const char *s, uint32_t size) {
+void debPrintStrMin(const char *s, u32 size) {
 #ifdef DEBUG_FUNC
   if (s != NULL || s != 0) {
     if (size == 0)
@@ -360,7 +562,7 @@ void debPrintTab(int depth) {
   printf("|");
 #endif
 }
-void debPrintNodeSing(const struct EkonNode *n, int depth) {
+void debPrintNodeSing(const EkonNode *n, int depth) {
 #ifdef DEBUG_FUNC
   if (n != NULL || n != 0) {
     debPrintTab(depth);
@@ -415,7 +617,7 @@ void debPrintNodeSing(const struct EkonNode *n, int depth) {
 #endif
 }
 
-void debPrintNode(const struct EkonNode *n, int depth) {
+void debPrintNode(const EkonNode *n, int depth) {
 #ifdef DEBUG_FUNC
   debPrintNodeSing(n, depth);
   if (n->ekonType == EKON_TYPE_OBJECT || n->ekonType == EKON_TYPE_ARRAY) {
@@ -428,12 +630,29 @@ void debPrintNode(const struct EkonNode *n, int depth) {
   }
 #endif
 }
+void debPrintHashmap(const EkonHashmap *hashmap) {
+  // TODO: implment this using a basic iterator. let's do some functional prog!!
+  /* #ifdef DEBUG_FUNC */
+  /*   printf("{"); */
+  /*   EkonHashItem **_item = hashTable->table; */
+  /*   EkonHashItem *item = *_item; */
+  /*   while (item != NULL && item->next != NULL) { */
+  /*     printf("'%s':", item->key); */
+  /*     if (item->value != NULL) */
+  /*       debPrintEkonType(item->value->ekonType); */
+  /*     else */
+  /*       printf("NULL"); */
+  /*     printf(","); */
+  /*     item = item->next; */
+  /*   } */
+  /*   printf("}\n"); */
+  /* #endif */
+}
+// -----------------------------------------
 
-// allocate new value into the memory and store the memory pointer
-// in the v->allocator (v->a) value
-struct EkonValue *ekonValueNew(struct EkonAllocator *alloc) {
-  struct EkonValue *v =
-      (struct EkonValue *)ekonAllocatorAlloc(alloc, sizeof(struct EkonValue));
+// Get a new value from an EkonAllocator instance
+EkonValue *ekonValueNew(EkonAllocator *alloc) {
+  EkonValue *v = (EkonValue *)ekonAllocatorAlloc(alloc, sizeof(EkonValue));
   if (EKON_UNLIKELY(v == 0))
     return 0;
   v->a = alloc;
@@ -441,11 +660,9 @@ struct EkonValue *ekonValueNew(struct EkonAllocator *alloc) {
   return v;
 }
 
-// add new value to EkonValue
-struct EkonValue *ekonValueInnerNew(struct EkonAllocator *alloc,
-                                    struct EkonNode *n) {
-  struct EkonValue *v =
-      (struct EkonValue *)ekonAllocatorAlloc(alloc, sizeof(struct EkonValue));
+// Creates a wrapper EkonValue for EkonNode. allocates to alloc
+EkonValue *ekonValueInnerNew(EkonAllocator *alloc, EkonNode *n) {
+  EkonValue *v = (EkonValue *)ekonAllocatorAlloc(alloc, sizeof(EkonValue));
   if (EKON_UNLIKELY(v == 0))
     return 0;
   v->a = alloc;
@@ -453,7 +670,7 @@ struct EkonValue *ekonValueInnerNew(struct EkonAllocator *alloc,
   return v;
 }
 
-// ignore spacing
+// check if the character is a whitespace
 bool ekonSkin(const char c) {
   return EKON_UNLIKELY(
       EKON_UNLIKELY(c == ' ') ||
@@ -461,9 +678,8 @@ bool ekonSkin(const char c) {
                     EKON_UNLIKELY(c == '\n' || EKON_UNLIKELY(c == '\r'))));
 }
 
-bool ekonConsume(const char c, const char *s, uint32_t *index);
-
-bool ekonConsumeWhiteChars(const char *s, uint32_t *index) {
+// consume white characters. also including comments
+bool ekonConsumeWhiteChars(const char *s, u32 *index) {
   while (ekonSkin(s[*index]))
     ++(*index);
   if (s[*index] == '/') {
@@ -475,15 +691,15 @@ bool ekonConsumeWhiteChars(const char *s, uint32_t *index) {
   return true;
 }
 
-// peek current character
-char ekonPeek(const char *s, uint32_t *index) {
+// get s[index] and index++
+char ekonPeek(const char *s, u32 *index) {
   if (ekonConsumeWhiteChars(s, index) == false)
     return 0;
   return s[(*index)++];
 }
 
-// consume current character
-bool ekonConsume(const char c, const char *s, uint32_t *index) {
+// consume current character. returns false if no match
+bool ekonConsume(const char c, const char *s, u32 *index) {
   if (s[*index] == c) {
     ++(*index);
     return true;
@@ -491,8 +707,8 @@ bool ekonConsume(const char c, const char *s, uint32_t *index) {
   return false;
 }
 
-// consume using likely
-bool ekonLikelyConsume(const char c, const char *s, uint32_t *index) {
+// consume using likely the next character. returns false if no match
+bool ekonLikelyConsume(const char c, const char *s, u32 *index) {
   if (EKON_LIKELY(s[*index] == c)) {
     ++(*index);
     return true;
@@ -500,8 +716,8 @@ bool ekonLikelyConsume(const char c, const char *s, uint32_t *index) {
   return false;
 }
 
-// consume using unlikely
-bool ekonUnlikelyConsume(const char c, const char *s, uint32_t *index) {
+// consume using unlikely the next character.  returns false if no match
+bool ekonUnlikelyConsume(const char c, const char *s, u32 *index) {
   if (EKON_UNLIKELY(s[*index] == c)) {
     ++(*index);
     return true;
@@ -509,8 +725,9 @@ bool ekonUnlikelyConsume(const char c, const char *s, uint32_t *index) {
   return false;
 }
 
-// peek and consume using likely
-bool ekonLikelyPeekAndConsume(const char c, const char *s, uint32_t *index) {
+// peek and consume the next non-whitespace character using likely. false for no
+// match
+bool ekonLikelyPeekAndConsume(const char c, const char *s, u32 *index) {
   if (ekonConsumeWhiteChars(s, index) == false)
     return false;
 
@@ -521,8 +738,9 @@ bool ekonLikelyPeekAndConsume(const char c, const char *s, uint32_t *index) {
   return false;
 }
 
-// peek and consume using unlikely
-bool ekonUnlikelyPeekAndConsume(const char c, const char *s, uint32_t *index) {
+// peek and consume the next non-whitespace character using unlikely. false for
+// no match
+bool ekonUnlikelyPeekAndConsume(const char c, const char *s, u32 *index) {
   if (ekonConsumeWhiteChars(s, index) == false)
     return false;
 
@@ -533,9 +751,8 @@ bool ekonUnlikelyPeekAndConsume(const char c, const char *s, uint32_t *index) {
   return false;
 }
 
-// consume a comment
-// multiline comments
-bool ekonConsumeComment(const char *s, uint32_t *index) {
+// consume a comment. also multiline comments
+bool ekonConsumeComment(const char *s, u32 *index) {
   char curr = s[(*index)];
   if (s[(*index)++] == '/' && s[(*index)++] == '/') {
     if (s[*index] == '\n') {
@@ -559,37 +776,35 @@ bool ekonConsumeComment(const char *s, uint32_t *index) {
   return false;
 }
 
-// consume 'false' string
-bool ekonConsumeFalse(const char *s, uint32_t *index) {
-  if (EKON_LIKELY(*((uint32_t *)("alse")) == *((uint32_t *)(s + *index)))) {
+// consume 'false' string. return false if not 'false'
+bool ekonConsumeFalse(const char *s, u32 *index) {
+  if (EKON_LIKELY(*((u32 *)("alse")) == *((u32 *)(s + *index)))) {
     *index += 4;
     return true;
   }
   return false;
 }
 
-// consume 'true' string
-bool ekonConsumeTrue(const char *s, uint32_t *index) {
-  if (EKON_LIKELY(*((uint32_t *)ekonStrTrue) ==
-                  *((uint32_t *)(s + *index - 1)))) {
+// consume 'true' string. return false if not 'true'
+bool ekonConsumeTrue(const char *s, u32 *index) {
+  if (EKON_LIKELY(*((u32 *)ekonStrTrue) == *((u32 *)(s + *index - 1)))) {
     *index += 3;
     return true;
   }
   return false;
 }
 
-// consume 'null' string
-bool ekonConsumeNull(const char *s, uint32_t *index) {
-  if (EKON_LIKELY(*((uint32_t *)ekonStrNull) ==
-                  *((uint32_t *)(s + *index - 1)))) {
+// consume 'null' string. return false if not 'null'
+bool ekonConsumeNull(const char *s, u32 *index) {
+  if (EKON_LIKELY(*((u32 *)ekonStrNull) == *((u32 *)(s + *index - 1)))) {
     *index += 3;
     return true;
   }
   return false;
 }
 
-// check if its a hex character
-uint32_t ekonHexCodePoint(const char c) {
+// get the decimal value
+u32 ekonHexCodePoint(const char c) {
   if (c >= '0' && c <= '9')
     return c - '0';
   if (c >= 'A' && c <= 'F')
@@ -599,8 +814,16 @@ uint32_t ekonHexCodePoint(const char c) {
   return 16;
 }
 
-// ekonValueGetUnEspaceStr
-uint32_t ekonHexCodePointForUnEscape(const char c) {
+bool ekonCharIsBinary(const char c) { return c == '1' || c == '0'; }
+bool ekonCharIsDecimal(const char c) { return c >= '0' && c <= '9'; }
+bool ekonCharIsHex(const char c) {
+  return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') ||
+         (c >= 'A' && c <= 'Z');
+}
+bool ekonCharIsOctal(const char c) { return c >= 0 && c <= '7'; }
+
+// TODO: do more inquiry on this: ekonValueGetUnEspaceStr
+u32 ekonHexCodePointForUnEscape(const char c) {
   if (c >= '0' && c <= '9')
     return c - '0';
   else if (c >= 'A' && c <= 'F')
@@ -608,9 +831,9 @@ uint32_t ekonHexCodePointForUnEscape(const char c) {
   return c - 'a' + 10;
 }
 
-// consume Hex one char
-bool ekonConsumeHexOne(const char *s, uint32_t *index, uint32_t *cp) {
-  uint32_t tcp = ekonHexCodePoint(s[*index]);
+// consume Hex one char, consume, now also update the same.
+bool ekonConsumeHexOne(const char *s, u32 *index, u32 *cp) {
+  u32 tcp = ekonHexCodePoint(s[*index]);
   if (EKON_LIKELY(tcp < 16)) {
     *cp = *cp << 4;
     *cp += tcp;
@@ -620,18 +843,17 @@ bool ekonConsumeHexOne(const char *s, uint32_t *index, uint32_t *cp) {
   return false;
 }
 
-// valueGetUnEscapeStr
-void ekonConsumeHexOneForUnEscape(const char *s, uint32_t *index,
-                                  uint32_t *cp) {
+// valueGetUnEscapeStr, again ekonValueGetUnEspaceStr
+void ekonConsumeHexOneForUnEscape(const char *s, u32 *index, u32 *cp) {
   *cp = *cp << 4;
   *cp += ekonHexCodePointForUnEscape(s[*index]);
   ++(*index);
   return;
 }
 
-// consume a hex code
-bool ekonConsumeHex(const char *s, uint32_t *index, uint32_t *cp) {
-
+// check if the next 4 characters represent a hex number using cp
+// if yes, return true, otherwise false
+bool ekonConsumeHex(const char *s, u32 *index, u32 *cp) {
   if (EKON_LIKELY(EKON_LIKELY(ekonConsumeHexOne(s, index, cp)) &&
                   EKON_LIKELY(ekonConsumeHexOne(s, index, cp)) &&
                   EKON_LIKELY(ekonConsumeHexOne(s, index, cp)) &&
@@ -641,26 +863,25 @@ bool ekonConsumeHex(const char *s, uint32_t *index, uint32_t *cp) {
   return false;
 }
 
-// consume Hex for unescaped
-void ekonConsumeHexForUnEscape(const char *s, uint32_t *index, uint32_t *cp) {
+// consume Hex for unescaped strings - TODO: research later
+void ekonConsumeHexForUnEscape(const char *s, u32 *index, u32 *cp) {
   ekonConsumeHexOneForUnEscape(s, index, cp);
   ekonConsumeHexOneForUnEscape(s, index, cp);
   ekonConsumeHexOneForUnEscape(s, index, cp);
   ekonConsumeHexOneForUnEscape(s, index, cp);
-  return;
 }
 
-// ... apend string without having a length ...
-void ekonAppend(char *s, uint32_t *index, char c) { s[(*index)++] = c; }
+// apend char to a string. not memory safe
+void ekonAppend(char *s, u32 *index, char c) { s[(*index)++] = c; }
 
-// ... append strings with length ...
-void ekonAppendLen(char *s, uint32_t *index, const char *str, uint32_t len) {
+// append char array with length to another string
+void ekonAppendLen(char *s, u32 *index, const char *str, u32 len) {
   ekonCopy(str, len, s + (*index));
   *index += len;
 }
 
 // Append UTF-8
-void ekonAppendUTF8(char *s, uint32_t *index, uint32_t codepoint) {
+void ekonAppendUTF8(char *s, u32 *index, u32 codepoint) {
   // UTF8 and UNICODE support
   if (codepoint <= 0x7F)
     ekonAppend(s, index, (char)(codepoint & 0xFF));
@@ -679,14 +900,13 @@ void ekonAppendUTF8(char *s, uint32_t *index, uint32_t codepoint) {
   }
 }
 
-// Append At the End
-void ekonAppendEnd(char *s, uint32_t *index) { ekonAppend(s, index, 0); }
+// Append a '\0' at the end of a character array
+void ekonAppendEnd(char *s, u32 *index) { ekonAppend(s, index, 0); }
 
-// Unescape Str
-void ekonUnEscapeStr(const char *str, uint32_t len, char *s,
-                     uint32_t *finalLen) {
-  uint32_t sIndex = 0;
-  uint32_t index;
+// unescapes a str and stores
+void ekonUnEscapeStr(const char *str, u32 len, char *s, u32 *finalLen) {
+  u32 sIndex = 0;
+  u32 index;
   char c;
   for (index = 0; index < len;) {
     c = str[index];
@@ -740,10 +960,10 @@ void ekonUnEscapeStr(const char *str, uint32_t len, char *s,
       }
       case 'u': {
         index += 2;
-        uint32_t cp = 0;
+        u32 cp = 0;
         ekonConsumeHexForUnEscape(str, &index, &cp);
         if (EKON_UNLIKELY(cp >= 0xD800 && cp <= 0xDBFF)) {
-          uint32_t cp1 = 0;
+          u32 cp1 = 0;
           index += 2;
           ekonConsumeHexForUnEscape(str, &index, &cp1);
           cp = (((cp - 0xD800) << 10) | (cp1 - 0xDC00)) + 0x10000;
@@ -753,11 +973,11 @@ void ekonUnEscapeStr(const char *str, uint32_t len, char *s,
       }
       case 'U': {
         index += 2;
-        uint32_t cp = 0;
+        u32 cp = 0;
         ekonConsumeHexForUnEscape(str, &index, &cp);
         ekonConsumeHexForUnEscape(str, &index, &cp);
         if (EKON_UNLIKELY(cp >= 0xD800 && cp <= 0xDBFF)) {
-          uint32_t cp1 = 0;
+          u32 cp1 = 0;
           index += 2;
           ekonConsumeHexForUnEscape(str, &index, &cp1);
           cp = (((cp - 0xD800) << 10) | (cp1 - 0xDC00)) + 0x10000;
@@ -776,11 +996,13 @@ void ekonUnEscapeStr(const char *str, uint32_t len, char *s,
   return;
 }
 
+// just a type for the next array
 struct EkonEscapeChar {
   const char *str;
-  uint32_t len;
+  u32 len;
 };
 
+// a list of characters that the replacement is for
 static const struct EkonEscapeChar ekonEscapeChars[256] = {
     {"\\u0000", 6}, {"\\u0001", 6}, {"\\u0002", 6}, {"\\u0003", 6},
     {"\\u0004", 6}, {"\\u0005", 6}, {"\\u0006", 6}, {"\\u0007", 6},
@@ -847,10 +1069,9 @@ static const struct EkonEscapeChar ekonEscapeChars[256] = {
     {"\xf8", 1},    {"\xf9", 1},    {"\xfa", 1},    {"\xfb", 1},
     {"\xfc", 1},    {"\xfd", 1},    {"\xfe", 1},    {"\xff", 1}};
 
-// str ....
-const char *ekonEscapeStr(const char *str, struct EkonAllocator *a,
-                          uint32_t *finalLen) {
-  uint32_t len = 0;
+// escapes the cahracters for you.
+const char *ekonEscapeStr(const char *str, EkonAllocator *a, u32 *finalLen) {
+  u32 len = 0;
   const char *src = str;
   while (EKON_LIKELY(*str != 0)) {
     len += ekonEscapeChars[(unsigned char)(*str)].len;
@@ -859,7 +1080,7 @@ const char *ekonEscapeStr(const char *str, struct EkonAllocator *a,
   char *s = ekonAllocatorAlloc(a, len + 1);
   if (EKON_UNLIKELY(s == 0))
     return 0;
-  uint32_t index = 0;
+  u32 index = 0;
   str = src;
   while (EKON_LIKELY(*str != 0)) {
     ekonAppendLen(s, &index, ekonEscapeChars[(unsigned char)(*str)].str,
@@ -871,9 +1092,10 @@ const char *ekonEscapeStr(const char *str, struct EkonAllocator *a,
   return s;
 }
 
-const char *ekonEscapeStrJSON(const char *str, struct EkonAllocator *a,
-                              uint32_t *finalLen) {
-  uint32_t len = 0;
+// escapes the characters. handles `"` differently than the above function
+const char *ekonEscapeStrJSON(const char *str, EkonAllocator *a,
+                              u32 *finalLen) {
+  u32 len = 0;
   const char *src = str;
   while (EKON_LIKELY(*str != 0)) {
     if (*str == '"' || *str == '\n' || *str == '\t') {
@@ -889,7 +1111,7 @@ const char *ekonEscapeStrJSON(const char *str, struct EkonAllocator *a,
   char *s = ekonAllocatorAlloc(a, len + 1);
   if (EKON_UNLIKELY(s == 0))
     return 0;
-  uint32_t index = 0;
+  u32 index = 0;
   str = src;
   while (EKON_LIKELY(*str != 0)) {
     if (*str == '"' || *str == '\n' || *str == '\t' || *str == '\r') {
@@ -910,11 +1132,10 @@ const char *ekonEscapeStrJSON(const char *str, struct EkonAllocator *a,
 }
 
 // str escape len with str
-const char *ekonEscapeStrLen(const char *str, struct EkonAllocator *a,
-                             uint32_t len) {
-  uint32_t l = 0;
+const char *ekonEscapeStrLen(const char *str, EkonAllocator *a, u32 len) {
+  u32 l = 0;
   const char *src = str;
-  uint32_t srcLen = len;
+  u32 srcLen = len;
   while (EKON_LIKELY(len != 0)) {
     l += ekonEscapeChars[(unsigned char)(*str)].len;
     ++str;
@@ -923,7 +1144,7 @@ const char *ekonEscapeStrLen(const char *str, struct EkonAllocator *a,
   char *s = ekonAllocatorAlloc(a, l + 1);
   if (EKON_UNLIKELY(s == 0))
     return 0;
-  uint32_t index = 0;
+  u32 index = 0;
   str = src;
   len = srcLen;
   while (EKON_LIKELY(len != 0)) {
@@ -937,8 +1158,8 @@ const char *ekonEscapeStrLen(const char *str, struct EkonAllocator *a,
 }
 
 // consume a string
-bool ekonConsumeStr(const char *s, uint32_t *index, const char quoteType,
-                    uint8_t *option) {
+bool ekonConsumeStr(const char *s, u32 *index, const char quoteType,
+                    u16 *option) {
   char c = s[*index];
   while (EKON_LIKELY(c != 0)) {
     if (c == '\n') {
@@ -978,7 +1199,7 @@ bool ekonConsumeStr(const char *s, uint32_t *index, const char quoteType,
       case 'U':
       case 'u': {
         c = s[++(*index)];
-        uint32_t cp = 0;
+        u32 cp = 0;
         if (EKON_LIKELY(ekonConsumeHex(s, index, &cp))) {
           // ... something to do with handling UTF16 characters
           if (EKON_UNLIKELY(cp >= 0xDC00 && cp <= 0xDFFF))
@@ -986,7 +1207,7 @@ bool ekonConsumeStr(const char *s, uint32_t *index, const char quoteType,
           if (EKON_UNLIKELY(cp >= 0xD800 && cp <= 0xD8FF)) {
             if (EKON_LIKELY(ekonLikelyConsume('\\', s, index) &&
                             ekonLikelyConsume('u', s, index))) {
-              uint32_t cp2 = 0;
+              u32 cp2 = 0;
               if (EKON_LIKELY(ekonConsumeHex(s, index, &cp2))) {
                 if (EKON_UNLIKELY(cp2 < 0xDC00 || cp2 > 0xDFFF))
                   return false;
@@ -1003,7 +1224,7 @@ bool ekonConsumeStr(const char *s, uint32_t *index, const char quoteType,
       }
       case 'x': {
         c = s[++(*index)];
-        uint32_t cp = 0;
+        u32 cp = 0;
         if (EKON_LIKELY(ekonConsumeHexOne(s, index, &cp)) &&
             EKON_LIKELY(ekonConsumeHexOne(s, index, &cp))) {
           if (EKON_UNLIKELY(cp >= 0xDC00 && cp <= 0XDFFF))
@@ -1013,7 +1234,7 @@ bool ekonConsumeStr(const char *s, uint32_t *index, const char quoteType,
           if (EKON_UNLIKELY(cp >= 0xD800 && cp <= 0xD8FF)) {
             if (EKON_LIKELY(ekonLikelyConsume('\\', s, index) &&
                             ekonLikelyConsume('x', s, index))) {
-              uint32_t cp2 = 0;
+              u32 cp2 = 0;
               if (EKON_LIKELY(ekonConsumeHexOne(s, index, &cp)) &&
                   EKON_LIKELY(ekonConsumeHexOne(s, index, &cp))) {
                 if (EKON_UNLIKELY(cp2 < 0xDC00 || cp2 > 0xDFFF))
@@ -1050,7 +1271,7 @@ bool ekonConsumeStr(const char *s, uint32_t *index, const char quoteType,
   return false;
 }
 
-bool ekonConsumeSchema(const char *s, uint32_t *index) {
+bool ekonConsumeSchema(const char *s, u32 *index) {
   char c = s[*index];
   while (EKON_LIKELY(c != 0)) {
     if (EKON_UNLIKELY(c == '`')) {
@@ -1061,7 +1282,7 @@ bool ekonConsumeSchema(const char *s, uint32_t *index) {
   return false;
 }
 // consume a string in the form of a word
-bool ekonConsumeUnquotedStr(const char *s, uint32_t *index) {
+bool ekonConsumeUnquotedStr(const char *s, u32 *index) {
   char c = s[(*index)];
   while (EKON_LIKELY(c != 0)) {
     if (ekonIsNonUnquoteStrChar(c)) {
@@ -1078,8 +1299,8 @@ bool ekonConsumeUnquotedStr(const char *s, uint32_t *index) {
 }
 
 // Check String, Set Str
-bool ekonCheckStr(const char *s, uint32_t *len) {
-  uint32_t index = 0;
+bool ekonCheckStr(const char *s, u32 *len) {
+  u32 index = 0;
   char c = s[index++];
   while (EKON_LIKELY(c != 0)) {
     if (EKON_UNLIKELY(EKON_UNLIKELY((unsigned char)c <= 0x1f))) {
@@ -1102,7 +1323,7 @@ bool ekonCheckStr(const char *s, uint32_t *len) {
         c = s[index++];
         continue;
       case 'u': {
-        uint32_t cp = 0;
+        u32 cp = 0;
         if (EKON_LIKELY(ekonConsumeHex(s, &index, &cp))) {
           // UTF16 and UNICODE support ....
           if (EKON_UNLIKELY(cp >= 0xDC00 && cp <= 0xDFFFF))
@@ -1110,7 +1331,7 @@ bool ekonCheckStr(const char *s, uint32_t *len) {
           if (EKON_UNLIKELY(cp >= 0xD800 && cp <= 0xD8FF)) {
             if (EKON_LIKELY(ekonLikelyConsume('\\', s, &index) &&
                             ekonLikelyConsume('u', s, &index))) {
-              uint32_t cp2 = 0;
+              u32 cp2 = 0;
               if (EKON_LIKELY(ekonConsumeHex(s, &index, &cp2))) {
                 if (EKON_UNLIKELY(cp2 < 0xDC00 || cp2 > 0xDFFF))
                   return false;
@@ -1125,7 +1346,7 @@ bool ekonCheckStr(const char *s, uint32_t *len) {
         continue;
       }
       case 'x': {
-        uint32_t cp = 0;
+        u32 cp = 0;
         if (EKON_LIKELY(ekonConsumeHexOne(s, &index, &cp)) &&
             EKON_LIKELY(ekonConsumeHexOne(s, &index, &cp))) {
           if (EKON_UNLIKELY(cp >= 0xDC00 && cp <= 0xDFFFF))
@@ -1133,7 +1354,7 @@ bool ekonCheckStr(const char *s, uint32_t *len) {
           if (EKON_UNLIKELY(cp >= 0xD800 && cp <= 0xD8FF)) {
             if (EKON_LIKELY(ekonLikelyConsume('\\', s, &index) &&
                             ekonLikelyConsume('x', s, &index))) {
-              uint32_t cp2 = 0;
+              u32 cp2 = 0;
               if (EKON_LIKELY(ekonConsumeHexOne(s, &index, &cp)) &&
                   EKON_LIKELY(ekonConsumeHexOne(s, &index, &cp))) {
                 if (EKON_UNLIKELY(cp2 < 0xDC00 || cp2 > 0xDFFF))
@@ -1159,7 +1380,7 @@ bool ekonCheckStr(const char *s, uint32_t *len) {
 }
 
 // Check string with length
-bool ekonCheckStrLen(struct EkonAllocator *alloc, const char *s, uint32_t len) {
+bool ekonCheckStrLen(EkonAllocator *alloc, const char *s, u32 len) {
   if (EKON_UNLIKELY(ekonStringCache == 0)) {
     ekonStringCache = ekonStringNew(alloc, ekonStringCacheInitMemSize);
     if (EKON_UNLIKELY(ekonStringCache == 0))
@@ -1171,7 +1392,7 @@ bool ekonCheckStrLen(struct EkonAllocator *alloc, const char *s, uint32_t len) {
   if (EKON_UNLIKELY(ekonStringAppendStr(ekonStringCache, s, len) == false))
     return false;
   ekonStringAppendEnd(ekonStringCache);
-  uint32_t avail_len;
+  u32 avail_len;
   if (EKON_UNLIKELY(ekonCheckStr(ekonStringStr(ekonStringCache), &avail_len) ==
                     false))
     return false;
@@ -1180,194 +1401,157 @@ bool ekonCheckStrLen(struct EkonAllocator *alloc, const char *s, uint32_t len) {
   return true;
 }
 
-// consume a number
-bool ekonConsumeNum(const char *s, uint32_t *index) {
-  // handle unary minus
-  if ((ekonConsume('-', s, index) || ekonConsume('+', s, index))) {
-  }
-
-  bool decimalStarted = false;
-
-  if (ekonUnlikelyConsume('0', s, index)) {
-    if (ekonLikelyConsume('x', s, index) || ekonLikelyConsume('X', s, index)) {
-      uint8_t i = 0;
-      char c = s[*index];
-      while ((c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f') ||
-             (c >= '0' && c <= '9')) {
-        if (i > 4)
-          return false;
-        c = s[++(*index)];
-        i++;
-      }
-      return true;
-    }
-    if (ekonLikelyConsume('b', s, index)) {
-      uint8_t i = 0;
-      char c = s[*index];
-      while ((c == '0' || c == '1' || (c == '_' && i > 0))) {
-        c = s[++(*index)];
-        i++;
-      }
-      if (c == ',' || c == '[' || c == ']' || c == '{' || c == '}' ||
-          c == '/' || c == '"' || c == '\'' || ekonSkin(c)) {
-        return true;
-      }
-      return false;
-    }
-    if (ekonLikelyConsume('o', s, index)) {
-      uint8_t i = 0;
-      char c = s[*index];
-      while (((c >= '0' && c <= '7') || (c == '_' && i > 0))) {
-        c = s[++(*index)];
-        i++;
-      }
-      if (c == ',' || c == '[' || c == ']' || c == '{' || c == '}' ||
-          c == '/' || c == '"' || c == '\'' || ekonSkin(c)) {
-        return true;
-      }
-      return false;
-    }
-  } else if (EKON_LIKELY(EKON_LIKELY(s[*index] >= '1') &&
-                         EKON_LIKELY(s[*index] <= '9'))) {
-    char c = s[*index];
-    while (EKON_LIKELY(c >= '0' && c <= '9'))
-      c = s[++(*index)];
-  } else
-    return false;
-
-  if (ekonConsume('.', s, index)) {
-    if (decimalStarted == true)
-      return false;
-
-    decimalStarted = true;
-
-    char c = s[*index];
-    if ((EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9'))) {
-      c = s[++(*index)];
-      while (EKON_LIKELY(EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9')))
-        c = s[++(*index)];
-    } else if (ekonSkin(c) || c == ',' || c == '[' || c == ']' || c == '{' ||
-               c == '}' || c == '/' || c == '"' || c == '\'') {
-      ++(*index);
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  if (ekonConsume('.', s, index))
-    return false;
-
-  if (s[*index] == 'e' || s[*index] == 'E') {
-    char c = s[++(*index)];
-    if (c == '-' || c == '+')
-      ++(*index);
-    c = s[*index];
-    if (EKON_LIKELY(EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9'))) {
-      c = s[++(*index)];
-      while (EKON_LIKELY(EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9'))) {
-        c = s[++(*index)];
-      }
-      if (ekonSkin(c) || c == ',' || c == '[' || c == ']' || c == '{' ||
-          c == '}' || c == '/' || c == '"' || c == '\'') {
-        return true;
-      }
-    } else
-      return false;
-  }
-
-  return true;
-}
-
-// check a number
-bool ekonCheckNum(const char *s, uint32_t *len) {
-  uint32_t index = 0;
+/**
+ * @brief check if a string is a number
+ * @param s The start of the string you want to check
+ * @param outLen Updates the length of the string
+ * @return -1 means last letter is 0, 1 means success, 0 means failure
+ * */
+i8 ekonCheckNumWithoutEnd(const char *s, u32 *outLen, u16 *option) {
+  u32 index = 0;
 
   if (s[index] == '-' || s[index] == '+')
     ++(index);
 
+  // consume hex, binary, octal numbers
   if (ekonUnlikelyConsume('0', s, &index)) {
+    // only 0
+    if (ekonIsNonUnquoteStrChar(s[index])) {
+      *option |= EKON_IS_NUM_INT;
+      *outLen = index;
+      if (s[index] == '\0')
+        return -1;
+      return 1;
+    }
+
+    // consume hex
     if (ekonLikelyConsume('x', s, &index) ||
         ekonLikelyConsume('X', s, &index)) {
-      uint8_t i = 0;
-      char c = s[index];
-      while ((c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f') ||
-             (c >= '0' && c <= '9')) {
-        if (i > 4)
-          return false;
-        c = s[++index];
-        i++;
+      if (ekonCharIsHex(s[index++])) {
+        while (ekonCharIsHex(s[index]) || s[index] == '_') {
+          index++;
+        }
+        if (s[index - 1] == '_')
+          return false; // return false if the last digit is '_'
+        if (ekonIsNonUnquoteStrChar(s[index])) {
+          *outLen = index;
+          if (s[index] == '\0')
+            return -1;
+          *option |= EKON_IS_NUM_HEXADECIMAL;
+          return 1;
+        }
       }
-      *len = index;
-      return true;
+      return 0;
     }
+
+    // consume binary
     if (ekonLikelyConsume('b', s, &index)) {
-      uint8_t i = 0;
-      char c = s[index];
-      while ((c == '0' || c == '1' || (c == '_' && i > 0))) {
-        c = s[++(index)];
-        i++;
+      if (ekonCharIsBinary(s[index++])) {
+        while (ekonCharIsBinary(s[index]) || s[index] == '_') {
+          index++;
+        }
+        if (s[index - 1] == '_')
+          return false; // return false if the last digit is '_'
+        if (ekonIsNonUnquoteStrChar(s[index])) {
+          *outLen = index;
+          if (s[index] == '\0')
+            return -1;
+          *option |= EKON_IS_NUM_BINARY;
+          return 1;
+        }
       }
-      if (c == ',' || c == '[' || c == ']' || c == '{' || c == '}' ||
-          c == '/' || c == '"' || c == '\'' || ekonSkin(c)) {
-        *len = index;
-        return true;
-      }
-      return false;
+      return 0;
     }
+
+    // consume octal numbers
     if (ekonLikelyConsume('o', s, &index)) {
-      uint8_t i = 0;
-      char c = s[index];
-      while (((c >= '0' && c <= '7') || (c == '_' && i > 0))) {
-        c = s[++(index)];
-        i++;
+      if (ekonCharIsOctal(s[index++])) {
+        while (ekonCharIsOctal(s[index]) || s[index] == '_') {
+          index++;
+        }
+        if (s[index - 1] == '_')
+          return false; // return false if the last digit is '_'
+        if (ekonIsNonUnquoteStrChar(s[index])) {
+          *outLen = index;
+          if (s[index] == '\0')
+            return -1;
+          *option |= EKON_IS_NUM_OCTAL;
+          return 0;
+        }
       }
-      if (c == ',' || c == '[' || c == ']' || c == '{' || c == '}' ||
-          c == '/' || c == '"' || c == '\'' || ekonSkin(c)) {
-        *len = index;
-        return true;
-      }
+      return 0;
+    }
+
+    if (s[index] != '.') {
       return false;
     }
-  } else if (EKON_LIKELY(EKON_LIKELY(s[index] >= '1') &&
-                         EKON_LIKELY(s[index] <= '9'))) {
+  } else if (EKON_LIKELY(ekonCharIsDecimal(s[index]))) {
     char c = s[++index];
-    while (EKON_LIKELY(EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9')))
+    while (EKON_LIKELY(ekonCharIsDecimal(c)) || c == '_')
       c = s[++index];
-  } else
+    if (s[index - 1] == '_') // last digit cannot be _
+      return false;
+    *option |= EKON_IS_NUM_INT;
+  } else {
     return false;
+  }
 
   if (ekonConsume('.', s, &index)) {
     char c = s[index];
-    if ((EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9'))) {
+    if (EKON_LIKELY(ekonCharIsDecimal(c))) {
       c = s[++index];
-      while (EKON_LIKELY(EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9')))
+      while (EKON_LIKELY(ekonCharIsDecimal(c)) || c == '_')
         c = s[++index];
+      if (s[index - 1] == '_')
+        return false;
+      *option &= ~EKON_IS_NUM_INT; // remove if int is there
+      *option |= EKON_IS_NUM_FLOAT;
     } else
       return false;
   }
 
   if (s[index] == 'e' || s[index] == 'E') {
     char c = s[++index];
-
-    if (c == '-')
-      ++index;
-    else if (c == '+')
-      ++index;
-
-    c = s[index];
-    if (EKON_LIKELY(EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9'))) {
+    if (c == '-' || c == '+')
       c = s[++index];
-      while (EKON_LIKELY(EKON_LIKELY(c >= '0') && EKON_LIKELY(c <= '9')))
+
+    if (EKON_LIKELY(ekonCharIsDecimal(c))) {
+      c = s[++index];
+      while (EKON_LIKELY(ekonCharIsDecimal(c)) || c == '_')
         c = s[++index];
+      if (s[index - 1] == '_')
+        return false;
     } else
       return false;
   }
-  *len = index;
-  return ekonLikelyConsume(0, s, &index);
+
+  *outLen = index;
+  return s[index] == '\0' ? -1 : 1;
 }
 
-bool ekonCheckNumLen(struct EkonAllocator *alloc, const char *s, uint32_t len) {
+// check a string is a number. note: string should end with '\0'
+bool ekonCheckNum(const char *s, u32 *outLen) {
+  u16 option = 0;
+  i8 res = ekonCheckNumWithoutEnd(s, outLen, &option);
+  if (res == 0 || res == 1) {
+    return false;
+  }
+  return true;
+}
+
+// consume a number
+bool ekonConsumeNum(const char *s, u32 *index, u16 *option) {
+  u32 len = 0;
+  if (ekonCheckNumWithoutEnd(s + *index, &len, option) != 0) {
+    printf("...\n");
+    *index += len;
+    return true;
+  }
+  return false;
+}
+
+// check for the length of a number
+bool ekonCheckNumLen(EkonAllocator *alloc, const char *s, u32 len) {
   if (EKON_UNLIKELY(ekonStringCache == 0)) {
     ekonStringCache = ekonStringNew(alloc, ekonStringCacheInitMemSize);
     if (EKON_UNLIKELY(ekonStringCache == 0))
@@ -1381,7 +1565,7 @@ bool ekonCheckNumLen(struct EkonAllocator *alloc, const char *s, uint32_t len) {
   if (EKON_UNLIKELY(ekonStringAppendEnd(ekonStringCache) == false))
     return false;
 
-  uint32_t avail_len;
+  u32 avail_len;
   if (EKON_UNLIKELY(ekonCheckNum(ekonStringStr(ekonStringCache), &avail_len) ==
                     false))
     return false;
@@ -1391,20 +1575,23 @@ bool ekonCheckNumLen(struct EkonAllocator *alloc, const char *s, uint32_t len) {
   return true;
 }
 
-void ekonNodeAddStr(struct EkonNode *node, const char *s, uint32_t len,
-                    uint8_t option) {
+void ekonNodeAddStr(EkonNode *node, const char *s, u32 len, u16 option) {
   node->option = option;
   node->value.str = s;
   node->len = len;
   node->ekonType = EKON_TYPE_STRING;
+  if (node->father && node->father->ekonType == EKON_TYPE_OBJECT)
+    (node->hashItem->value) = node;
 }
 
-void ekonNodeAddNull(struct EkonNode *node) {
+void ekonNodeAddNull(EkonNode *node) {
   node->ekonType = EKON_TYPE_NULL;
   node->value.str = ekonStrNull;
   node->len = 4;
+  if (node->father && node->father->ekonType == EKON_TYPE_OBJECT)
+    node->hashItem->value = node;
 }
-void ekonNodeAddBoolean(struct EkonNode *node, bool val) {
+void ekonNodeAddBoolean(EkonNode *node, bool val) {
   node->ekonType = EKON_TYPE_BOOL;
   if (val == true) {
     node->value.str = ekonStrTrue;
@@ -1413,84 +1600,179 @@ void ekonNodeAddBoolean(struct EkonNode *node, bool val) {
     node->value.str = ekonStrFalse;
     node->len = 5;
   }
+  if (node->father && node->father->ekonType == EKON_TYPE_OBJECT)
+    *(node->hashItem->value) = *node;
 }
 
-void ekonNodeAddNumber(struct EkonNode *node, const char *s, uint32_t len) {
+void ekonNodeAddNumber(EkonNode *node, const char *s, u32 len, u16 option) {
   node->value.str = s;
   node->len = len;
+  node->option = option;
   node->ekonType = EKON_TYPE_NUMBER;
-}
-void ekonNodeAddKey(struct EkonValue *v, const char *s, uint32_t len,
-                    uint8_t option, EkonHashTable *keyTable) {
-  v->n->key = s;
-  v->n->keyLen = len;
-  v->n->option = option;
-  ekonHashSet(v->a, v->n->table, key, keyLen, v->n);
-  hashsetAddMember(keySet, s, len);
+  if (node->father && node->father->ekonType == EKON_TYPE_OBJECT)
+    node->hashItem->value = node;
 }
 
-bool ekonSrcNodeError(struct EkonNode *srcNode, struct EkonValue *v,
-                      const char *s, char **errMessage, uint32_t index) {
+bool ekonSrcNodeError(EkonNode *srcNode, EkonValue *v, const char *s,
+                      char **errMessage, u32 index) {
   if (EKON_LIKELY(srcNode == 0))
     v->n = srcNode;
   else
     *v->n = *srcNode;
-  ekonError(errMessage, v->a, s, index);
-  return false;
+  return ekonError(errMessage, s, index);
 }
 
-bool ekonNodeAddObjOrArrNode(struct EkonNode **node, struct EkonValue *v,
-                             struct EkonNode *srcNode, const char *s,
-                             uint32_t *index, char **errMessage, bool isObj,
-                             bool isRootObj) {
+typedef enum { EKON_OPT_IS_OBJ = 1, EKON_OPT_IS_ROOT_OBJ = 2 } EkonNodeOpt;
+
+/**
+ * @brief - Create an EkonNode and add it to node.
+ *        if empty array/object, node will be modified but not replaced
+ *        node will be replaced with `node->value.node` if array/obj not empty
+ * @param outNode - this is where the new node will be stored
+ * @param v - this is the main value of the node, the allocator is relevant
+ * @param srcNode - I still don't know what srcNode is. TODO
+ * @param s - the original string of EKON text
+ * @param index - index pointer to current cursor for s buffer
+ * @param errMessage - pointer for the errMessage to be stored
+ * @param addObjOpt - (EKON_OPT_IS_OBJ | EKON_OPT_IS_ROOT_OBJ)
+ * */
+bool ekonNodeAddObjOrArrNode(EkonNode **outNode, EkonValue *v,
+                             EkonNode *srcNode, const char *s, u32 *index,
+                             char **errMessage, const EkonNodeOpt addObjOpt) {
+  const bool isObj = (addObjOpt & EKON_OPT_IS_OBJ) != 0;
+  const bool isRootObj = (addObjOpt & EKON_OPT_IS_ROOT_OBJ);
+
   if (isObj == false) {
-    (*node)->ekonType = EKON_TYPE_ARRAY;
+    (*outNode)->ekonType = EKON_TYPE_ARRAY;
     if (ekonUnlikelyPeekAndConsume(']', s, index)) {
-      (*node)->value.node = 0;
-      (*node)->len = 0;
+      (*outNode)->value.node = 0;
+      (*outNode)->len = 0;
       return true;
     }
   } else {
-    (*node)->ekonType = EKON_TYPE_OBJECT;
+    (*outNode)->ekonType = EKON_TYPE_OBJECT;
     if (isRootObj == false && ekonUnlikelyPeekAndConsume('}', s, index)) {
-      (*node)->value.node = 0;
-      (*node)->len = 0;
+      (*outNode)->value.node = 0;
+      (*outNode)->len = 0;
       return true;
     }
   }
 
-  struct EkonNode *n =
-      (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+  if ((*outNode)->father && (*outNode)->father->ekonType == EKON_TYPE_OBJECT) {
+    (*outNode)->hashItem->value = *outNode;
+  }
+
+  if (isObj == true) {
+    EkonHashmap *map =
+        (EkonHashmap *)ekonAllocatorAlloc(v->a, sizeof(EkonHashmap));
+    if (ekonHashmapInit(v->a, 16, map) == false)
+      return false;
+    (*outNode)->keymap = map;
+  }
+
+  EkonNode *n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
 
   if (EKON_UNLIKELY(n == 0))
     return ekonSrcNodeError(srcNode, v, s, errMessage, *index);
 
-  n->father = *node;
+  n->father = *outNode;
   n->prev = 0;
 
-  if (isObj == true) {
-    (*node)->keySet = hashsetCreate(v->a, errMessage, s, *index);
-  }
-  (*node)->value.node = n;
-  (*node)->end = n;
-  (*node)->len = 1;
-  *node = n;
+  (*outNode)->value.node = n;
+  (*outNode)->end = n;
+  (*outNode)->len = 1;
+  *outNode = n;
   return true;
 }
 
-bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
+bool ekonNodeAddKey(EkonNode *node, EkonValue *v, const char *s, u32 *index,
+                    u16 *option, char **errMessage, EkonNode *srcNode) {
+  EkonHashmap *keymap = node->father->keymap;
+  bool isKeyUnquoted = ekonIsQuote(s[(*index)]) == false;
+
+  if (isKeyUnquoted) {
+    u32 start = *index;
+    if (ekonConsumeUnquotedStr(s, index)) {
+      u32 keyLen = (*index) - start;
+      const char *key = s + start;
+      if (ekonHashmapGet(keymap, key, keyLen) != NULL) {
+        return ekonDuplicateKeyError(errMessage, s, start, keyLen);
+      } else {
+        node->key = key;
+        node->keyLen = keyLen;
+        node->option = *option;
+        EkonHashmapItem **item =
+            (EkonHashmapItem **)(malloc(sizeof(EkonHashmapItem *)));
+        ekonHashmapPut(v->a, keymap, key, keyLen, NULL, item);
+        node->hashItem = *item;
+      }
+    } else {
+      return ekonSrcNodeError(srcNode, v, s, errMessage, *index);
+    }
+  } else {
+    char quoteType = s[*index];
+    if (quoteType == '"')
+      *option |= EKON_IS_KEY_ESCAPABLE;
+
+    u32 start = (++(*index));
+    const char *key = s + start;
+
+    if (EKON_UNLIKELY(ekonUnlikelyConsume(quoteType, s, index))) {
+      if (ekonHashmapGet(keymap, s + start, 0) != 0) {
+        ekonDuplicateKeyError(errMessage, s, *index, 0);
+        return false;
+      } else {
+        *option |= EKON_IS_KEY_SPACED;
+        node->key = key;
+        node->keyLen = 0;
+        node->option = *option;
+        EkonHashmapItem **item =
+            (EkonHashmapItem **)(malloc(sizeof(EkonHashmapItem *)));
+        ekonHashmapPut(v->a, keymap, key, 0, NULL, item);
+        node->hashItem = *item;
+      }
+    } else {
+      if (EKON_UNLIKELY(ekonConsumeStr(s, index, quoteType, option) == false)) {
+        return ekonSrcNodeError(srcNode, v, s, errMessage, *index);
+      }
+
+      u32 keyLen = *index - start - 1;
+      if (ekonHashmapGet(keymap, key, keyLen) != NULL) {
+        ekonDuplicateKeyError(errMessage, key, *index, keyLen);
+        return false;
+      } else {
+        if (*option & EKON_IS_STR_SPACED)
+          *option |= EKON_IS_KEY_SPACED;
+        if (*option & EKON_IS_STR_MULTILINED)
+          *option |= EKON_IS_KEY_MULTILINED;
+        *option &= ~EKON_IS_STR_MULTILINED;
+        *option &= ~EKON_IS_STR_SPACED;
+        node->key = key;
+        node->keyLen = keyLen;
+        node->option = *option;
+        EkonHashmapItem **item =
+            (EkonHashmapItem **)(malloc(sizeof(EkonHashmapItem *)));
+        ekonHashmapPut(v->a, keymap, key, keyLen, NULL, item);
+        node->hashItem = *item;
+      }
+    }
+  }
+  return true;
+}
+
+bool ekonValueParseFast(EkonValue *v, const char *s, char **errMessage,
                         char **schema) {
   if (EKON_UNLIKELY(s[0] == '\0')) {
-    ekonError(errMessage, v->a, s, 0);
+    ekonError(errMessage, s, 0);
     return false;
   }
 
-  struct EkonNode *srcNode;
+  EkonNode *srcNode;
 
   if (EKON_LIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0)) {
-      ekonError(errMessage, v->a, s, 0);
+      ekonError(errMessage, s, 0);
       return false;
     }
     v->n->prev = 0;
@@ -1499,56 +1781,53 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
     v->n->key = 0;
     srcNode = 0;
   } else {
-    srcNode =
-        (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    srcNode = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(srcNode == 0)) {
-      ekonError(errMessage, v->a, s, 0);
+      ekonError(errMessage, s, 0);
       return false;
     }
     *srcNode = *v->n;
   }
 
-  uint32_t index = 0;
-
-  struct EkonNode *node = v->n;
+  u32 index = 0;
+  EkonNode *node = v->n;
   bool isRootNoCurlyBrace = false;
-
   char c = ekonPeek(s, &index);
-  if (c == '`') {
-    const uint32_t start = index;
-    if (ekonConsumeSchema(s, &index) == false)
-      return ekonError(errMessage, v->a, s, index);
 
-    if (*schema == NULL) {
+  if (c == '`') {
+    const u32 start = index;
+    if (ekonConsumeSchema(s, &index) == false)
+      return ekonError(errMessage, s, index);
+
+    if (*schema == NULL)
       *schema = ekonCopySchema(s + start, index - start - 1);
-    }
+
     c = ekonPeek(s, &index);
   }
 
-  const uint32_t ifRootStart = index - 1;
+  const u32 ifRootStart = index - 1;
 
   switch (c) {
   case '[': {
-    if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage, false,
-                                false))
+    if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage, 0))
       break;
     return false;
   }
   case '{': {
-    if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage, true,
-                                false))
+    if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage,
+                                EKON_OPT_IS_OBJ))
       break;
     return false;
   }
   case 'n': {
-    uint32_t start = index - 1;
+    u32 start = index - 1;
     if (EKON_LIKELY(ekonConsumeNull(s, &index))) {
       if (ekonIsNonUnquoteStrChar(s[index])) {
         ekonNodeAddNull(node);
         break;
       }
       if (ekonConsumeUnquotedStr(s, &index)) {
-        uint32_t strEnd = index;
+        u32 strEnd = index;
         if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
           isRootNoCurlyBrace = true;
           index = ifRootStart;
@@ -1559,7 +1838,7 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
       }
     }
     if (ekonConsumeUnquotedStr(s, &index)) {
-      uint32_t strEnd = index;
+      u32 strEnd = index;
       if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
         isRootNoCurlyBrace = true;
         index = ifRootStart;
@@ -1571,14 +1850,14 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
     return ekonSrcNodeError(srcNode, v, s, errMessage, index);
   }
   case 'f': {
-    uint32_t start = index - 1;
+    u32 start = index - 1;
     if (EKON_LIKELY(ekonConsumeFalse(s, &index))) {
       if (ekonIsNonUnquoteStrChar(s[index])) {
         ekonNodeAddBoolean(node, false);
         break;
       }
       if (ekonConsumeUnquotedStr(s, &index)) {
-        uint32_t strEnd = index;
+        u32 strEnd = index;
         if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
           isRootNoCurlyBrace = true;
           index = ifRootStart;
@@ -1589,7 +1868,7 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
       }
     }
     if (ekonConsumeUnquotedStr(s, &index)) {
-      uint32_t strEnd = index;
+      u32 strEnd = index;
       if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
         isRootNoCurlyBrace = true;
         index = ifRootStart;
@@ -1601,14 +1880,14 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
     return ekonSrcNodeError(srcNode, v, s, errMessage, index);
   }
   case 't': {
-    uint32_t start = index - 1;
+    u32 start = index - 1;
     if (EKON_LIKELY(ekonConsumeTrue(s, &index))) {
       if (ekonIsNonUnquoteStrChar(s[index]) == true) {
         ekonNodeAddBoolean(node, true);
         break;
       }
       if (ekonConsumeUnquotedStr(s, &index) == true) {
-        uint32_t strEnd = index;
+        u32 strEnd = index;
         if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
           isRootNoCurlyBrace = true;
           index = ifRootStart;
@@ -1619,7 +1898,7 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
       }
     }
     if (ekonConsumeUnquotedStr(s, &index)) {
-      uint32_t strEnd = index;
+      u32 strEnd = index;
       if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
         isRootNoCurlyBrace = true;
         index = ifRootStart;
@@ -1632,18 +1911,18 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
   }
   case '\'':
   case '"': {
-    uint32_t start = index;
+    u32 start = index;
     if (EKON_UNLIKELY(ekonUnlikelyConsume(c, s, &index))) {
       ekonNodeAddStr(node, s + index, 0, EKON_IS_STR_SPACED);
       break;
     }
 
-    uint8_t option = 0;
+    u16 option = 0;
     if (c == '"')
       option |= EKON_IS_STR_ESCAPABLE;
 
     if (EKON_LIKELY(ekonConsumeStr(s, &index, c, &option))) {
-      uint32_t strEnd = index - 1;
+      u32 strEnd = index - 1;
       if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
         isRootNoCurlyBrace = true;
         index = ifRootStart;
@@ -1657,21 +1936,22 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
   }
   default: {
     index--;
-    uint32_t start = index;
+    u32 start = index;
     if (c == '-' || c == '+' || (c >= '0' && c <= '9')) {
-      if (ekonConsumeNum(s, &index)) {
-        uint32_t numEnd = index;
+      u16 option = 0;
+      if (ekonConsumeNum(s, &index, &option)) {
+        u32 numEnd = index;
         if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
           isRootNoCurlyBrace = true;
           index = ifRootStart;
           break;
         }
-        ekonNodeAddNumber(node, s + start, numEnd - start);
+        ekonNodeAddNumber(node, s + start, numEnd - start, option);
         break;
       } else {
         index = start;
         if (ekonConsumeUnquotedStr(s, &index)) {
-          uint32_t numEnd = index;
+          u32 numEnd = index;
           if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
             isRootNoCurlyBrace = true;
             index = ifRootStart;
@@ -1685,7 +1965,7 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
     }
 
     if (ekonConsumeUnquotedStr(s, &index)) {
-      uint32_t strEnd = index;
+      u32 strEnd = index;
       if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
         isRootNoCurlyBrace = true;
         index = ifRootStart;
@@ -1700,65 +1980,18 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
   }
 
   if (isRootNoCurlyBrace == true) {
-    if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage, true,
-                                true) == false) {
+    if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage,
+                                EKON_OPT_IS_OBJ | EKON_OPT_IS_ROOT_OBJ) ==
+        false) {
       return false;
     }
   }
 
   while (EKON_LIKELY(node != v->n)) {
-    uint8_t option = 0;
-
+    u16 option = 0;
     if (node->father->ekonType == EKON_TYPE_OBJECT) {
-      struct Hashset *keySet = node->father->keySet;
-      bool isKeyUnquoted = ekonIsQuote(s[index]) == false;
-      if (isKeyUnquoted) {
-        uint32_t start = index;
-        if (ekonConsumeUnquotedStr(s, &index)) {
-          uint32_t keyLen = index - start;
-          if (hashsetIsMember(keySet, s + start, keyLen)) {
-            return ekonDuplicateKeyError(errMessage, v->a, s, start, keyLen);
-          } else
-            ekonNodeAddKey(node, s + start, index - start, 0, keySet);
-        } else {
-          return ekonSrcNodeError(srcNode, v, s, errMessage, index);
-        }
-      } else {
-        char quoteType = s[index];
-        if (quoteType == '"')
-          option |= EKON_IS_KEY_ESCAPABLE;
-
-        uint32_t start = ++index;
-        if (EKON_UNLIKELY(ekonUnlikelyConsume(quoteType, s, &index))) {
-          if (hashsetIsMember(keySet, s + start, 0)) {
-            ekonDuplicateKeyError(errMessage, v->a, s, index, 0);
-            return false;
-          } else {
-            option |= EKON_IS_KEY_SPACED;
-            ekonNodeAddKey(node, s, 0, option, keySet);
-          }
-        } else {
-          if (EKON_UNLIKELY(ekonConsumeStr(s, &index, quoteType, &option) ==
-                            false)) {
-            return ekonSrcNodeError(srcNode, v, s, errMessage, index);
-          }
-
-          if (hashsetIsMember(keySet, s + start, index - start - 1)) {
-            ekonDuplicateKeyError(errMessage, v->a, s + start, index,
-                                  index - start - 1);
-            return false;
-          } else {
-            if (option & EKON_IS_STR_SPACED)
-              option |= EKON_IS_KEY_SPACED;
-            if (option & EKON_IS_STR_MULTILINED)
-              option |= EKON_IS_KEY_MULTILINED;
-            option &= ~EKON_IS_STR_MULTILINED;
-            option &= ~EKON_IS_STR_SPACED;
-
-            ekonNodeAddKey(node, s + start, index - start - 1, option, keySet);
-          }
-        }
-      }
+      if (ekonNodeAddKey(node, v, s, &index, &option, errMessage, srcNode) == 0)
+        return false;
 
       if (EKON_UNLIKELY(ekonLikelyPeekAndConsume(':', s, &index) == false))
         return ekonSrcNodeError(srcNode, v, s, errMessage, index);
@@ -1767,27 +2000,27 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
     }
 
     c = ekonPeek(s, &index);
-
     switch (c) {
     case '[': {
-      struct EkonNode *currNode = node;
-      if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage,
-                                  false, false) == false) {
+      EkonNode *currNode = node;
+      if (!ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage,
+                                   0)) {
         return false;
       }
+
       if (currNode == node)
         break;
 
       if (ekonPeek(s, &index) == ',')
-        return ekonError(errMessage, v->a, s, index);
+        return ekonError(errMessage, s, index);
 
       index--;
       continue;
     }
     case '{': {
-      struct EkonNode *currNode = node;
+      EkonNode *currNode = node;
       if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage,
-                                  true, false) == false) {
+                                  EKON_OPT_IS_OBJ) == false) {
         return false;
       }
 
@@ -1796,14 +2029,14 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
 
       char nextChar = ekonPeek(s, &index);
       if (nextChar == ':' || nextChar == ',')
-        return ekonError(errMessage, v->a, s, index);
+        return ekonError(errMessage, s, index);
 
       index--;
       continue;
     }
     case 'n': {
-      uint32_t start = index - 1;
-      if (EKON_LIKELY(ekonConsumeNull(s, &index))) {
+      u32 start = index - 1;
+      if (EKON_LIKELY(ekonConsumeNull(s, &index)) == true) {
         if (ekonIsNonUnquoteStrChar(s[index]) == true) {
           ekonNodeAddNull(node);
           break;
@@ -1828,7 +2061,7 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
       return ekonSrcNodeError(node, v, s, errMessage, index);
     }
     case 'f': {
-      uint32_t start = index - 1;
+      u32 start = index - 1;
       if (EKON_LIKELY(ekonConsumeFalse(s, &index))) {
         if (ekonIsNonUnquoteStrChar(s[index]) == true) {
           ekonNodeAddBoolean(node, false);
@@ -1854,7 +2087,7 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
       return ekonSrcNodeError(node, v, s, errMessage, index);
     }
     case 't': {
-      uint32_t start = index - 1;
+      u32 start = index - 1;
       if (EKON_LIKELY(ekonConsumeTrue(s, &index))) {
         if (ekonIsNonUnquoteStrChar(s[index]) == true) {
           ekonNodeAddBoolean(node, true);
@@ -1880,7 +2113,7 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
     }
     case '\'':
     case '"': {
-      uint32_t start = index;
+      u32 start = index;
       if (c == '"')
         option |= EKON_IS_STR_ESCAPABLE;
 
@@ -1899,18 +2132,19 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
     }
     default: {
       if (c == ',')
-        return ekonError(errMessage, v->a, s, index);
+        return ekonError(errMessage, s, index);
 
       index--;
-      uint32_t start = index;
+      u32 start = index;
+      u16 option = 0;
       if (c == '-' || c == '+' || (c >= '0' && c <= '9')) {
-        if (ekonConsumeNum(s, &index)) {
-          ekonNodeAddNumber(node, s + start, index - start);
+        if (ekonConsumeNum(s, &index, &option)) {
+          ekonNodeAddNumber(node, s + start, index - start, option);
           break;
         } else {
           index = start;
           if (ekonConsumeUnquotedStr(s, &index)) {
-            uint32_t numEnd = index;
+            u32 numEnd = index;
             option &= ~EKON_IS_STR_SPACED;
             option &= ~EKON_IS_STR_MULTILINED;
             ekonNodeAddStr(node, s + start, numEnd - start, option);
@@ -1920,7 +2154,7 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
       }
 
       if (ekonConsumeUnquotedStr(s, &index)) {
-        uint32_t strEnd = index;
+        u32 strEnd = index;
         option &= ~EKON_IS_STR_SPACED;
         option &= ~EKON_IS_STR_MULTILINED;
         ekonNodeAddStr(node, s + start, strEnd - start, option);
@@ -1937,7 +2171,7 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
         c = ekonPeek(s, &index);
 
       if (c == ',') {
-        ekonError(errMessage, v->a, s, index);
+        ekonError(errMessage, s, index);
         return false;
       }
 
@@ -1946,13 +2180,13 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
           node->next = 0;
           return true;
         } else {
-          ekonError(errMessage, v->a, s, index);
+          ekonError(errMessage, s, index);
           return false;
         }
       }
 
       if (c == ':') {
-        ekonError(errMessage, v->a, s, index);
+        ekonError(errMessage, s, index);
         return false;
       }
 
@@ -1969,8 +2203,7 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
           }
         }
       } else {
-        struct EkonNode *n = (struct EkonNode *)ekonAllocatorAlloc(
-            v->a, sizeof(struct EkonNode));
+        EkonNode *n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
 
         if (EKON_UNLIKELY(n == 0))
           return ekonSrcNodeError(srcNode, v, s, errMessage, index);
@@ -1995,8 +2228,8 @@ bool ekonValueParseFast(struct EkonValue *v, const char *s, char **errMessage,
 }
 
 // ekon parse - API
-bool ekonValueParseLen(struct EkonValue *v, const char *s, uint32_t len,
-                       char **err, char **schema) {
+bool ekonValueParseLen(EkonValue *v, const char *s, u32 len, char **err,
+                       char **schema) {
   char *str = ekonAllocatorAlloc(v->a, len + 1);
   if (EKON_UNLIKELY(str == 0))
     return false;
@@ -2006,20 +2239,18 @@ bool ekonValueParseLen(struct EkonValue *v, const char *s, uint32_t len,
 }
 
 // The main parser - API
-bool ekonValueParse(struct EkonValue *v, const char *s, char **err,
-                    char **schema) {
+bool ekonValueParse(EkonValue *v, const char *s, char **err, char **schema) {
   return ekonValueParseLen(v, s, ekonStrLen(s), err, schema);
 }
 
 // -------------- util functions for stringifying ----------------
 // append Quotes
-const bool ekonAppendQuote(const struct EkonNode *node,
-                           struct EkonString *str) {
+const bool ekonAppendQuote(const EkonNode *node, EkonString *str) {
   if (EKON_UNLIKELY(ekonStringAppendChar(str, '\'') == false))
     return false;
   return true;
 }
-bool ekonUtilAppendArray(struct EkonString *str, struct EkonNode **node) {
+bool ekonUtilAppendArray(EkonString *str, EkonNode **node) {
   if (EKON_UNLIKELY(ekonStringAppendChar(str, '[') == false))
     return false;
 
@@ -2032,8 +2263,7 @@ bool ekonUtilAppendArray(struct EkonString *str, struct EkonNode **node) {
   return true;
 }
 
-bool ekonUtilAppendObj(struct EkonString *str, struct EkonNode **node,
-                       bool isRootObj) {
+bool ekonUtilAppendObj(EkonString *str, EkonNode **node, bool isRootObj) {
   if ((*node)->value.node != 0) {
     if (isRootObj == false) {
       if (EKON_UNLIKELY(ekonStringAppendChar(str, '{') == false))
@@ -2049,16 +2279,15 @@ bool ekonUtilAppendObj(struct EkonString *str, struct EkonNode **node,
 #define APPEND_QUOTE(str, isJSON)                                              \
   (EKON_UNLIKELY(ekonStringAppendChar((str), (isJSON) ? '"' : '\'')))
 
-bool ekonUtilAppendStr(struct EkonString *str, struct EkonNode *node,
-                       const struct EkonValue *v, bool unEscapeString,
-                       const bool isJSON) {
+bool ekonUtilAppendStr(EkonString *str, EkonNode *node, const EkonValue *v,
+                       bool unEscapeString, const bool isJSON) {
   if ((node->option & EKON_IS_STR_SPACED) != 0 ||
       (node->option & EKON_IS_STR_MULTILINED) != 0) {
     if (APPEND_QUOTE(str, isJSON) == false)
       return false;
   }
 
-  uint32_t finalLen = node->len;
+  u32 finalLen = node->len;
   const char *ss;
   if ((node->option & EKON_IS_STR_ESCAPABLE) != 0) {
     ss = ekonEscapeStr(node->value.str, v->a, &finalLen);
@@ -2071,7 +2300,7 @@ bool ekonUtilAppendStr(struct EkonString *str, struct EkonNode *node,
     if (EKON_UNLIKELY(retStr == 0))
       return 0;
 
-    uint32_t finalLen2;
+    u32 finalLen2;
     ekonUnEscapeStr(ss, finalLen, retStr, &finalLen2);
     if (EKON_UNLIKELY(ekonStringAppendStr(str, retStr, finalLen2) == false))
       return 0;
@@ -2087,9 +2316,8 @@ bool ekonUtilAppendStr(struct EkonString *str, struct EkonNode *node,
   }
   return true;
 }
-bool ekonUtilAppendKey(struct EkonString *str, struct EkonNode *node,
-                       const struct EkonValue *v, bool unEscapeString,
-                       const bool isJSON) {
+bool ekonUtilAppendKey(EkonString *str, EkonNode *node, const EkonValue *v,
+                       bool unEscapeString, const bool isJSON) {
   if (node->key != 0) {
     if ((node->option & EKON_IS_KEY_SPACED) != 0 ||
         (node->option & EKON_IS_KEY_MULTILINED) != 0) {
@@ -2112,15 +2340,15 @@ bool ekonUtilAppendKey(struct EkonString *str, struct EkonNode *node,
 // ---------------------------------------------------------------
 
 // stringify an EKON node - with option to unescape
-const char *ekonValueStringify(const struct EkonValue *v, bool unEscapeString) {
+const char *ekonValueStringify(const EkonValue *v, bool unEscapeString) {
   if (EKON_UNLIKELY(v->n == 0))
     return "";
 
-  struct EkonString *str = ekonStringNew(v->a, ekonStringInitMemSize);
+  EkonString *str = ekonStringNew(v->a, ekonStringInitMemSize);
   if (EKON_UNLIKELY(str == 0))
     return 0;
 
-  struct EkonNode *node = v->n;
+  EkonNode *node = v->n;
 
   switch (node->ekonType) {
   case EKON_TYPE_ARRAY: {
@@ -2151,7 +2379,7 @@ const char *ekonValueStringify(const struct EkonValue *v, bool unEscapeString) {
 
     switch (node->ekonType) {
     case EKON_TYPE_ARRAY: {
-      const struct EkonNode *currentNode = node;
+      const EkonNode *currentNode = node;
       if (ekonUtilAppendArray(str, &node) == false)
         return 0;
       if (currentNode == node)
@@ -2159,7 +2387,7 @@ const char *ekonValueStringify(const struct EkonValue *v, bool unEscapeString) {
       continue;
     }
     case EKON_TYPE_OBJECT: {
-      const struct EkonNode *currentNode = node;
+      const EkonNode *currentNode = node;
       if (ekonUtilAppendObj(str, &node, false) == false)
         return 0;
       if (currentNode == node)
@@ -2207,16 +2435,15 @@ const char *ekonValueStringify(const struct EkonValue *v, bool unEscapeString) {
 }
 
 // stringify a value - with option to unescape
-const char *ekonValueStringifyToJSON(const struct EkonValue *v,
-                                     bool unEscapeString) {
+const char *ekonValueStringifyToJSON(const EkonValue *v, bool unEscapeString) {
   if (EKON_UNLIKELY(v->n == 0))
     return "";
 
-  struct EkonString *str = ekonStringNew(v->a, ekonStringInitMemSize);
+  EkonString *str = ekonStringNew(v->a, ekonStringInitMemSize);
   if (EKON_UNLIKELY(str == 0))
     return 0;
 
-  struct EkonNode *node = v->n;
+  EkonNode *node = v->n;
 
   switch (node->ekonType) {
   case EKON_TYPE_ARRAY: {
@@ -2295,8 +2522,8 @@ const char *ekonValueStringifyToJSON(const struct EkonValue *v,
   return ekonStringStr(str);
 }
 
-bool ekonStringAppendTab(struct EkonString *str, const char *s,
-                         uint32_t depth) {
+// append a tab to a string
+bool ekonStringAppendTab(EkonString *str, const char *s, u32 depth) {
   for (int i = 0; i < depth; i++) {
     if (EKON_UNLIKELY(ekonStringAppendStr(str, s, strlen(s))) == false)
       return false;
@@ -2304,14 +2531,14 @@ bool ekonStringAppendTab(struct EkonString *str, const char *s,
   return true;
 }
 
-const char *ekonValueBeautify(struct EkonValue *v, char **err,
-                              bool unEscapeString, bool asJSON) {
-  struct EkonString *str = ekonStringNew(v->a, ekonStringInitMemSize);
+const char *ekonValueBeautify(EkonValue *v, char **err, bool unEscapeString,
+                              bool asJSON) {
+  EkonString *str = ekonStringNew(v->a, ekonStringInitMemSize);
   if (EKON_UNLIKELY(str == 0))
     return 0;
 
-  struct EkonNode *node = v->n;
-  uint32_t depth = 0;
+  EkonNode *node = v->n;
+  u32 depth = 0;
 
   switch (node->ekonType) {
   case EKON_TYPE_ARRAY: {
@@ -2353,7 +2580,7 @@ const char *ekonValueBeautify(struct EkonValue *v, char **err,
     switch (node->ekonType) {
     case EKON_TYPE_ARRAY: {
       depth++;
-      const struct EkonNode *currentNode = node;
+      const EkonNode *currentNode = node;
       if (ekonUtilAppendArray(str, &node) == false)
         return 0;
       if (ekonStringAppendStr(str, "\n", 1) == false)
@@ -2364,7 +2591,7 @@ const char *ekonValueBeautify(struct EkonValue *v, char **err,
     }
     case EKON_TYPE_OBJECT: {
       depth++;
-      const struct EkonNode *currentNode = node;
+      const EkonNode *currentNode = node;
       if (ekonUtilAppendObj(str, &node, false) == false)
         return 0;
       if (ekonStringAppendStr(str, "\n", 1) == false)
@@ -2428,8 +2655,8 @@ const char *ekonBeautify(const char *src, char **err,
   bool unEscapeString = options.unEscapeString;
   bool asJson = options.asJSON;
   bool preserveComments = options.preserveComments;
-  struct EkonAllocator *a = ekonAllocatorNew();
-  struct EkonValue *v = ekonValueNew(a);
+  EkonAllocator *a = ekonAllocatorNew();
+  EkonValue *v = ekonValueNew(a);
 
   char *schema = NULL;
   const bool ret = ekonValueParseFast(v, src, err, &schema);
@@ -2444,7 +2671,7 @@ const char *ekonBeautify(const char *src, char **err,
 }
 
 // get str fast
-const char *ekonValueGetStrFast(const struct EkonValue *v, uint32_t *len) {
+const char *ekonValueGetStrFast(const EkonValue *v, u32 *len) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_STRING))
@@ -2454,7 +2681,7 @@ const char *ekonValueGetStrFast(const struct EkonValue *v, uint32_t *len) {
 }
 
 // get string from value
-const char *ekonValueGetStr(struct EkonValue *v, uint8_t *option) {
+const char *ekonValueGetStr(EkonValue *v, uint8_t *option) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_STRING))
@@ -2469,7 +2696,7 @@ const char *ekonValueGetStr(struct EkonValue *v, uint8_t *option) {
 }
 
 // get unescaped string
-const char *ekonValueGetUnEspaceStr(struct EkonValue *v) {
+const char *ekonValueGetUnEspaceStr(EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_STRING))
@@ -2478,13 +2705,13 @@ const char *ekonValueGetUnEspaceStr(struct EkonValue *v) {
   char *retStr = ekonAllocatorAlloc(v->a, v->n->len + 1);
   if (EKON_UNLIKELY(retStr == 0))
     return 0;
-  uint32_t finalLen;
+  u32 finalLen;
   ekonUnEscapeStr(v->n->value.str, v->n->len, retStr, &finalLen);
   return retStr;
 }
 
 // get num fast
-const char *ekonValueGetNumFast(const struct EkonValue *v, uint32_t *len) {
+const char *ekonValueGetNumFast(const EkonValue *v, u32 *len) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_NUMBER))
@@ -2494,7 +2721,7 @@ const char *ekonValueGetNumFast(const struct EkonValue *v, uint32_t *len) {
 }
 
 // get num as str
-const char *ekonValueGetNumStr(struct EkonValue *v) {
+const char *ekonValueGetNumStr(EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_NUMBER))
@@ -2508,64 +2735,68 @@ const char *ekonValueGetNumStr(struct EkonValue *v) {
 }
 
 // get num as a double
-const double *ekonValueGetNum(struct EkonValue *v) {
-  return ekonValueGetDouble(v);
+const bool ekonValueGetNum(EkonValue *v, double *d) {
+  return ekonValueGetDouble(v, d);
 }
 
 // get num as a double
-const double *ekonValueGetDouble(struct EkonValue *v) {
+const bool ekonValueGetDouble(EkonValue *v, double *d) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_NUMBER))
     return 0;
-  double *d = (double *)ekonAllocatorAlloc(v->a, sizeof(double));
+  d = (double *)ekonAllocatorAlloc(v->a, sizeof(double));
   if (EKON_UNLIKELY(d == 0))
     return 0;
-  *d = ekonStrToDouble(v->n->value.str);
-  return d;
+  if (ekonStrToDouble(v->n->value.str, d) == false)
+    return false;
+  return true;
 }
 
 // get num as an int
-const int *ekonValueGetInt(struct EkonValue *v) {
+const bool ekonValueGetInt(EkonValue *v, int *i) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_NUMBER))
     return 0;
-  int *i = (int *)ekonAllocatorAlloc(v->a, sizeof(int));
+  i = (int *)ekonAllocatorAlloc(v->a, sizeof(int));
   if (EKON_UNLIKELY(i == 0))
     return 0;
-  *i = ekonStrToInt(v->n->value.str);
-  return i;
+  if (ekonStrToInt(v->n->value.str, i) == false)
+    return false;
+  return true;
 }
 
 // get value as an long
-const long *ekonValueGetLong(struct EkonValue *v) {
+const bool ekonValueGetLong(EkonValue *v, long *l) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_NUMBER))
     return 0;
-  long *i = (long *)ekonAllocatorAlloc(v->a, sizeof(long));
-  if (EKON_UNLIKELY(i == 0))
+  l = (long *)ekonAllocatorAlloc(v->a, sizeof(long));
+  if (EKON_UNLIKELY(l == 0))
     return 0;
-  *i = ekonStrToLong(v->n->value.str);
-  return i;
+  if (ekonStrToLong(v->n->value.str, l) == false)
+    return false;
+  return true;
 }
 
 // get value as an long
-const long long *ekonValueGetLongLong(struct EkonValue *v) {
+const bool ekonValueGetLongLong(EkonValue *v, long long *ll) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_NUMBER))
     return 0;
-  long long *i = (long long *)ekonAllocatorAlloc(v->a, sizeof(long long));
-  if (EKON_UNLIKELY(i == 0))
+  ll = (long long *)ekonAllocatorAlloc(v->a, sizeof(long long));
+  if (EKON_UNLIKELY(ll == 0))
     return 0;
-  *i = ekonStrToLongLong(v->n->value.str);
-  return i;
+  if (ekonStrToLongLong(v->n->value.str, ll) == false)
+    return false;
+  return true;
 }
 
 // get value as bool
-const bool *ekonValueGetBool(const struct EkonValue *v) {
+const bool *ekonValueGetBool(const EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_BOOL))
@@ -2578,7 +2809,7 @@ const bool *ekonValueGetBool(const struct EkonValue *v) {
 }
 
 // check value as null
-bool ekonValueIsNull(const struct EkonValue *v) {
+bool ekonValueIsNull(const EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_NULL))
@@ -2587,14 +2818,13 @@ bool ekonValueIsNull(const struct EkonValue *v) {
 }
 
 // get the key
-const char *ekonValueGetKey(struct EkonValue *v, uint8_t *option,
-                            uint32_t *keyLength) {
+const char *ekonValueGetKey(EkonValue *v, uint8_t *option, u32 *keyLength) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->key == 0))
     return 0;
-  struct EkonNode *node = v->n;
-  uint32_t len = node->keyLen;
+  EkonNode *node = v->n;
+  u32 len = node->keyLen;
 
   char *str = ekonAllocatorAlloc(v->a, len + 1);
   if (EKON_UNLIKELY(str == 0))
@@ -2607,7 +2837,7 @@ const char *ekonValueGetKey(struct EkonValue *v, uint8_t *option,
 }
 
 // get the key as unescaped
-const char *ekonValueGetUnEspaceKey(struct EkonValue *v) {
+const char *ekonValueGetUnEspaceKey(EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->key == 0))
@@ -2615,13 +2845,13 @@ const char *ekonValueGetUnEspaceKey(struct EkonValue *v) {
   char *str = ekonAllocatorAlloc(v->a, v->n->keyLen + 1);
   if (EKON_UNLIKELY(str == 0))
     return 0;
-  uint32_t finalLen;
+  u32 finalLen;
   ekonUnEscapeStr(v->n->key, v->n->keyLen, str, &finalLen);
   return str;
 }
 
 // get the key fast
-const char *ekonValueGetKeyFast(const struct EkonValue *v, uint32_t *len) {
+const char *ekonValueGetKeyFast(const EkonValue *v, u32 *len) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->key == 0))
@@ -2631,15 +2861,15 @@ const char *ekonValueGetKeyFast(const struct EkonValue *v, uint32_t *len) {
 }
 
 // get the value of the object
-struct EkonValue *ekonValueObjGet(const struct EkonValue *v, const char *key) {
+EkonValue *ekonValueObjGet(const EkonValue *v, const char *key) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_OBJECT))
     return 0;
-  struct EkonNode *next = v->n->value.node;
+  EkonNode *next = v->n->value.node;
   while (EKON_LIKELY(next != 0)) {
     if (EKON_UNLIKELY(ekonStrIsEqual(key, next->key, next->keyLen) == true)) {
-      struct EkonValue *retVal = ekonValueInnerNew(v->a, next);
+      EkonValue *retVal = ekonValueInnerNew(v->a, next);
       return retVal;
     }
     next = next->next;
@@ -2648,16 +2878,15 @@ struct EkonValue *ekonValueObjGet(const struct EkonValue *v, const char *key) {
 }
 
 // get the value of the object with length
-struct EkonValue *ekonValueObjGetLen(const struct EkonValue *v, const char *key,
-                                     uint32_t len) {
+EkonValue *ekonValueObjGetLen(const EkonValue *v, const char *key, u32 len) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_OBJECT))
     return 0;
-  struct EkonNode *next = v->n->value.node;
+  EkonNode *next = v->n->value.node;
   while (EKON_LIKELY(next != 0)) {
     if (EKON_UNLIKELY(ekonStrIsEqualLen(key, len, next->key, next->keyLen))) {
-      struct EkonValue *retVal = ekonValueInnerNew(v->a, next);
+      EkonValue *retVal = ekonValueInnerNew(v->a, next);
       return retVal;
     }
   }
@@ -2665,14 +2894,14 @@ struct EkonValue *ekonValueObjGetLen(const struct EkonValue *v, const char *key,
 }
 
 // Get the type of EKON Value
-const EkonType *ekonValueType(const struct EkonValue *v) {
+const EkonType *ekonValueType(const EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   return &v->n->ekonType;
 }
 
 // Get the size of the EKON Value
-uint32_t ekonValueSize(const struct EkonValue *v) {
+u32 ekonValueSize(const EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_OBJECT &&
@@ -2682,16 +2911,16 @@ uint32_t ekonValueSize(const struct EkonValue *v) {
 }
 
 // Get the value as array
-struct EkonValue *ekonValueArrayGet(const struct EkonValue *v, uint32_t index) {
+EkonValue *ekonValueArrayGet(const EkonValue *v, u32 index) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_ARRAY))
     return 0;
-  struct EkonNode *next = v->n->value.node;
-  uint32_t i = 0;
+  EkonNode *next = v->n->value.node;
+  u32 i = 0;
   while (EKON_LIKELY(next != 0)) {
     if (EKON_UNLIKELY(i == index)) {
-      struct EkonValue *retVal = ekonValueInnerNew(v->a, next);
+      EkonValue *retVal = ekonValueInnerNew(v->a, next);
       return retVal;
     }
     next = next->next;
@@ -2701,7 +2930,7 @@ struct EkonValue *ekonValueArrayGet(const struct EkonValue *v, uint32_t index) {
 }
 
 // start the current value
-struct EkonValue *ekonValueBegin(const struct EkonValue *v) {
+EkonValue *ekonValueBegin(const EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_OBJECT &&
@@ -2709,37 +2938,37 @@ struct EkonValue *ekonValueBegin(const struct EkonValue *v) {
     return 0;
 
   if (EKON_UNLIKELY(v->n->value.node != 0)) {
-    struct EkonValue *retVal = ekonValueInnerNew(v->a, v->n->value.node);
+    EkonValue *retVal = ekonValueInnerNew(v->a, v->n->value.node);
     return retVal;
   }
   return 0;
 }
 
 // get the next value
-struct EkonValue *ekonValueNext(const struct EkonValue *v) {
+EkonValue *ekonValueNext(const EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_LIKELY(v->n->next != 0)) {
-    struct EkonValue *retVal = ekonValueInnerNew(v->a, v->n->next);
+    EkonValue *retVal = ekonValueInnerNew(v->a, v->n->next);
     return retVal;
   }
   return 0;
 }
 
 // Copy value from one pointer to another
-bool ekonValueCopyFrom(struct EkonValue *v, const struct EkonValue *vv) {
+bool ekonValueCopyFrom(EkonValue *v, const EkonValue *vv) {
   if (EKON_UNLIKELY(vv->n == 0))
     return false;
-  struct EkonAllocator *const a = v->a;
-  v->n = (struct EkonNode *)ekonAllocatorAlloc(a, sizeof(struct EkonNode));
+  EkonAllocator *const a = v->a;
+  v->n = (EkonNode *)ekonAllocatorAlloc(a, sizeof(EkonNode));
   if (EKON_UNLIKELY(v->n == 0))
     return false;
   v->n->prev = 0;
   v->n->next = 0;
   v->n->father = 0;
 
-  struct EkonNode *node = vv->n;
-  struct EkonNode *desNode = v->n;
+  EkonNode *node = vv->n;
+  EkonNode *desNode = v->n;
 
   do {
     desNode->ekonType = node->ekonType;
@@ -2759,8 +2988,7 @@ bool ekonValueCopyFrom(struct EkonValue *v, const struct EkonValue *vv) {
       desNode->len = node->len;
       if (EKON_LIKELY(node->value.node != 0)) {
         node = node->value.node;
-        struct EkonNode *n =
-            (struct EkonNode *)ekonAllocatorAlloc(a, sizeof(struct EkonNode));
+        EkonNode *n = (EkonNode *)ekonAllocatorAlloc(a, sizeof(EkonNode));
         if (EKON_UNLIKELY(n == 0))
           return false;
         n->father = desNode;
@@ -2793,8 +3021,7 @@ bool ekonValueCopyFrom(struct EkonValue *v, const struct EkonValue *vv) {
     while (EKON_LIKELY(node != vv->n)) {
       if (EKON_LIKELY(node->next != 0)) {
         node = node->next;
-        struct EkonNode *n =
-            (struct EkonNode *)ekonAllocatorAlloc(a, sizeof(struct EkonNode));
+        EkonNode *n = (EkonNode *)ekonAllocatorAlloc(a, sizeof(EkonNode));
         if (EKON_UNLIKELY(n == 0))
           return false;
         n->father = desNode->father;
@@ -2815,29 +3042,28 @@ bool ekonValueCopyFrom(struct EkonValue *v, const struct EkonValue *vv) {
 }
 
 // copy a value and return it
-struct EkonValue *ekonValueCopy(const struct EkonValue *v) {
-  struct EkonValue *retVal = ekonValueNew(v->a);
+EkonValue *ekonValueCopy(const EkonValue *v) {
+  EkonValue *retVal = ekonValueNew(v->a);
   if (EKON_UNLIKELY(ekonValueCopyFrom(retVal, v) == false))
     return 0;
   return retVal;
 }
 
 // move a value
-bool ekonValueMove(struct EkonValue *v) {
+bool ekonValueMove(EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
   if (v->n->father != 0) {
-
-    if (v->n->prev == 0)
+    if (v->n->prev == 0) {
       v->n->father->value.node = v->n->next;
-    else {
+    } else {
       v->n->prev->next = v->n->next;
       v->n->prev = 0;
     }
 
-    if (v->n->next == 0)
+    if (v->n->next == 0) {
       v->n->father->end = v->n->prev;
-    else {
+    } else {
       v->n->next->prev = v->n->prev;
       v->n->next = 0;
     }
@@ -2849,9 +3075,9 @@ bool ekonValueMove(struct EkonValue *v) {
 }
 
 // set a value to null
-bool ekonValueSetNull(struct EkonValue *v) {
+bool ekonValueSetNull(EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -2866,9 +3092,9 @@ bool ekonValueSetNull(struct EkonValue *v) {
 }
 
 // set a value to bool
-bool ekonValueSetBool(struct EkonValue *v, bool b) {
+bool ekonValueSetBool(EkonValue *v, bool b) {
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -2888,12 +3114,12 @@ bool ekonValueSetBool(struct EkonValue *v, bool b) {
 }
 
 // set a num str fast
-bool ekonValueSetNumStrFast(struct EkonValue *v, const char *num) {
-  uint32_t len = 0;
+bool ekonValueSetNumStrFast(EkonValue *v, const char *num) {
+  u32 len = 0;
   if (EKON_UNLIKELY(ekonCheckNum(num, &len) == false))
     return false;
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -2908,12 +3134,11 @@ bool ekonValueSetNumStrFast(struct EkonValue *v, const char *num) {
 }
 
 // set a num str with length fast
-bool ekonValueSetNumStrLenFast(struct EkonValue *v, const char *num,
-                               uint32_t len) {
+bool ekonValueSetNumStrLenFast(EkonValue *v, const char *num, u32 len) {
   if (EKON_UNLIKELY(ekonCheckNumLen(v->a, num, len) == false))
     return false;
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -2928,8 +3153,8 @@ bool ekonValueSetNumStrLenFast(struct EkonValue *v, const char *num,
 }
 
 // set a num str
-bool ekonValueSetNumStr(struct EkonValue *v, const char *num) {
-  uint32_t len = 0;
+bool ekonValueSetNumStr(EkonValue *v, const char *num) {
+  u32 len = 0;
   if (EKON_UNLIKELY(ekonCheckNum(num, &len) == false))
     return false;
   char *s = ekonAllocatorAlloc(v->a, len);
@@ -2937,7 +3162,7 @@ bool ekonValueSetNumStr(struct EkonValue *v, const char *num) {
     return false;
   ekonCopy(num, len, s);
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -2952,7 +3177,7 @@ bool ekonValueSetNumStr(struct EkonValue *v, const char *num) {
 }
 
 // set a num str with length
-bool ekonValueSetNumStrLen(struct EkonValue *v, const char *num, uint32_t len) {
+bool ekonValueSetNumStrLen(EkonValue *v, const char *num, u32 len) {
   if (EKON_UNLIKELY(ekonCheckNumLen(v->a, num, len) == false))
     return false;
   char *s = ekonAllocatorAlloc(v->a, len);
@@ -2960,7 +3185,7 @@ bool ekonValueSetNumStrLen(struct EkonValue *v, const char *num, uint32_t len) {
     return false;
   ekonCopy(num, len, s);
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -2975,18 +3200,18 @@ bool ekonValueSetNumStrLen(struct EkonValue *v, const char *num, uint32_t len) {
 }
 
 // set num to a value
-bool ekonValueSetNum(struct EkonValue *v, const double d) {
+bool ekonValueSetNum(EkonValue *v, const double d) {
   return ekonValueSetDouble(v, d);
 }
 
 // set double to a value
-bool ekonValueSetDouble(struct EkonValue *v, const double d) {
+bool ekonValueSetDouble(EkonValue *v, const double d) {
   char *num = ekonAllocatorAlloc(v->a, 32);
   if (EKON_UNLIKELY(num == 0))
     return false;
-  uint32_t len = ekonDoubleToStr(d, num);
+  u32 len = ekonDoubleToStr(d, num);
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_LIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -3001,13 +3226,13 @@ bool ekonValueSetDouble(struct EkonValue *v, const double d) {
 }
 
 // set int to a value
-bool ekonValueSetInt(struct EkonValue *v, const int n) {
+bool ekonValueSetInt(EkonValue *v, const int n) {
   char *num = ekonAllocatorAlloc(v->a, 16);
   if (EKON_UNLIKELY(num == 0))
     return false;
-  uint32_t len = ekonIntToStr(n, num);
+  u32 len = ekonIntToStr(n, num);
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -3022,13 +3247,13 @@ bool ekonValueSetInt(struct EkonValue *v, const int n) {
 }
 
 // set long to a value
-bool ekonValueSetLong(struct EkonValue *v, const long n) {
+bool ekonValueSetLong(EkonValue *v, const long n) {
   char *num = ekonAllocatorAlloc(v->a, 24);
   if (EKON_UNLIKELY(num == 0))
     return false;
-  uint32_t len = ekonLongToStr(n, num);
+  u32 len = ekonLongToStr(n, num);
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -3043,13 +3268,13 @@ bool ekonValueSetLong(struct EkonValue *v, const long n) {
 }
 
 // set long long to a value
-bool ekonValueSetLongLong(struct EkonValue *v, const long long n) {
+bool ekonValueSetLongLong(EkonValue *v, const long long n) {
   char *num = ekonAllocatorAlloc(v->a, 24);
   if (EKON_UNLIKELY(num == 0))
     return false;
-  uint32_t len = ekonLongLongToStr(n, num);
+  u32 len = ekonLongLongToStr(n, num);
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -3064,9 +3289,8 @@ bool ekonValueSetLongLong(struct EkonValue *v, const long long n) {
 }
 
 // set str escaped character
-bool ekonValueSetStrEscape(struct EkonValue *v, const char *str,
-                           uint8_t option) {
-  uint32_t finalLen;
+bool ekonValueSetStrEscape(EkonValue *v, const char *str, u16 option) {
+  u32 finalLen;
   const char *es = ekonEscapeStr(str, v->a, &finalLen);
   if (EKON_UNLIKELY(es == 0))
     return false;
@@ -3074,8 +3298,8 @@ bool ekonValueSetStrEscape(struct EkonValue *v, const char *str,
 }
 
 // set str escaped characters with len
-bool ekonValueSetStrLenEscape(struct EkonValue *v, const char *str,
-                              uint32_t len, uint8_t option) {
+bool ekonValueSetStrLenEscape(EkonValue *v, const char *str, u32 len,
+                              u16 option) {
   const char *es = ekonEscapeStrLen(str, v->a, len);
   if (EKON_UNLIKELY(es == 0))
     return false;
@@ -3083,13 +3307,13 @@ bool ekonValueSetStrLenEscape(struct EkonValue *v, const char *str,
 }
 
 // set str fast
-bool ekonValueSetStrFast(struct EkonValue *v, const char *str, uint8_t option) {
-  uint32_t len = 0;
+bool ekonValueSetStrFast(EkonValue *v, const char *str, u16 option) {
+  u32 len = 0;
   if (EKON_UNLIKELY(ekonCheckStr(str, &len) == false)) {
     return false;
   }
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -3105,13 +3329,12 @@ bool ekonValueSetStrFast(struct EkonValue *v, const char *str, uint8_t option) {
 }
 
 // set str with length fast
-bool ekonValueSetStrLenFast(struct EkonValue *v, const char *str,
-                            uint32_t len) {
+bool ekonValueSetStrLenFast(EkonValue *v, const char *str, u32 len) {
   if (EKON_UNLIKELY(ekonCheckStrLen(v->a, str, len) == false))
     return false;
 
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -3126,8 +3349,8 @@ bool ekonValueSetStrLenFast(struct EkonValue *v, const char *str,
 }
 
 // set value set str
-bool ekonValueSetStr(struct EkonValue *v, const char *str) {
-  uint32_t len = 0;
+bool ekonValueSetStr(EkonValue *v, const char *str) {
+  u32 len = 0;
   if (EKON_UNLIKELY(ekonCheckStr(str, &len) == false))
     return false;
   char *s = ekonAllocatorAlloc(v->a, len);
@@ -3143,7 +3366,7 @@ bool ekonValueSetStr(struct EkonValue *v, const char *str) {
 }
 
 // set value to str with length
-bool ekonValueSetStrLen(struct EkonValue *v, const char *str, uint32_t len) {
+bool ekonValueSetStrLen(EkonValue *v, const char *str, u32 len) {
   if (EKON_UNLIKELY(ekonCheckStrLen(v->a, str, len) == false))
     return false;
 
@@ -3152,7 +3375,7 @@ bool ekonValueSetStrLen(struct EkonValue *v, const char *str, uint32_t len) {
     return false;
   ekonCopy(str, len, s);
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -3167,9 +3390,9 @@ bool ekonValueSetStrLen(struct EkonValue *v, const char *str, uint32_t len) {
 }
 
 // set key with escape chars
-bool ekonValueSetKeyEscape(struct EkonValue *v, const char *key, uint8_t option,
+bool ekonValueSetKeyEscape(EkonValue *v, const char *key, u16 option,
                            bool replace) {
-  uint32_t finalLen;
+  u32 finalLen;
   const char *es = ekonEscapeStr(key, v->a, &finalLen);
   if (EKON_UNLIKELY(es == 0))
     return false;
@@ -3177,8 +3400,8 @@ bool ekonValueSetKeyEscape(struct EkonValue *v, const char *key, uint8_t option,
 }
 
 // escape and length
-bool ekonValueSetKeyLenEscape(struct EkonValue *v, const char *key,
-                              uint32_t len, uint8_t option, bool replace) {
+bool ekonValueSetKeyLenEscape(EkonValue *v, const char *key, u32 len,
+                              u16 option, bool replace) {
   const char *es = ekonEscapeStrLen(key, v->a, len);
   if (EKON_UNLIKELY(es == 0))
     return false;
@@ -3186,14 +3409,14 @@ bool ekonValueSetKeyLenEscape(struct EkonValue *v, const char *key,
 }
 
 // uses the same previous memory
-bool ekonValueSetKeyFast(struct EkonValue *v, const char *key, uint8_t option,
+bool ekonValueSetKeyFast(EkonValue *v, const char *key, u16 option,
                          bool replace) {
-  uint32_t len = 0;
+  u32 len = 0;
   if (EKON_UNLIKELY(ekonCheckStr(key, &len) == false))
     return false;
 
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->prev = 0;
@@ -3214,12 +3437,12 @@ bool ekonValueSetKeyFast(struct EkonValue *v, const char *key, uint8_t option,
 }
 
 // fastest key setter. also doesn't copy the str.
-bool ekonValueSetKeyLenFast(struct EkonValue *v, const char *key, uint32_t len,
+bool ekonValueSetKeyLenFast(EkonValue *v, const char *key, u32 len,
                             bool replace) {
   if (EKON_UNLIKELY(ekonCheckStrLen(v->a, key, len) == false))
     return false;
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->prev = 0;
@@ -3237,13 +3460,13 @@ bool ekonValueSetKeyLenFast(struct EkonValue *v, const char *key, uint32_t len,
 }
 
 // copies a key string to add to the value node
-bool ekonValueSetKey(struct EkonValue *v, const char *key, bool replace) {
-  uint32_t len = 0;
+bool ekonValueSetKey(EkonValue *v, const char *key, bool replace) {
+  u32 len = 0;
   if (EKON_UNLIKELY(ekonCheckStr(key, &len) == false))
     return false;
 
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->prev = 0;
@@ -3266,13 +3489,12 @@ bool ekonValueSetKey(struct EkonValue *v, const char *key, bool replace) {
 }
 
 // copies a key string with length to add to the value
-bool ekonValueSetKeyLen(struct EkonValue *v, const char *key, uint32_t len,
-                        bool replace) {
+bool ekonValueSetKeyLen(EkonValue *v, const char *key, u32 len, bool replace) {
   if (EKON_UNLIKELY(ekonCheckStrLen(v->a, key, len) == false))
     return false;
 
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->prev = 0;
@@ -3295,9 +3517,9 @@ bool ekonValueSetKeyLen(struct EkonValue *v, const char *key, uint32_t len,
 }
 
 // set array value
-bool ekonValueSetArray(struct EkonValue *v) {
+bool ekonValueSetArray(EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -3312,9 +3534,9 @@ bool ekonValueSetArray(struct EkonValue *v) {
 }
 
 // Set Object
-bool ekonValueSetObj(struct EkonValue *v) {
+bool ekonValueSetObj(EkonValue *v) {
   if (EKON_UNLIKELY(v->n == 0)) {
-    v->n = (struct EkonNode *)ekonAllocatorAlloc(v->a, sizeof(struct EkonNode));
+    v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
     v->n->key = 0;
@@ -3329,7 +3551,7 @@ bool ekonValueSetObj(struct EkonValue *v) {
 }
 
 // set a value fast
-bool ekonValueSetFast(struct EkonValue *v, struct EkonValue *vv) {
+bool ekonValueSetFast(EkonValue *v, EkonValue *vv) {
   if (EKON_UNLIKELY(ekonValueMove(vv) == false))
     return false;
   if (EKON_UNLIKELY(v->n == 0)) {
@@ -3346,7 +3568,7 @@ bool ekonValueSetFast(struct EkonValue *v, struct EkonValue *vv) {
   v->n->len = vv->n->len;
   if (v->n->ekonType == EKON_TYPE_ARRAY || v->n->ekonType == EKON_TYPE_OBJECT) {
     v->n->end = vv->n->end;
-    struct EkonNode *next = v->n->value.node;
+    EkonNode *next = v->n->value.node;
     while (EKON_LIKELY(next != 0)) {
       next->father = v->n;
       next = next->next;
@@ -3357,8 +3579,8 @@ bool ekonValueSetFast(struct EkonValue *v, struct EkonValue *vv) {
 }
 
 // 函数说明详见《API》
-bool ekonValueSet(struct EkonValue *v, const struct EkonValue *vv) {
-  struct EkonValue *cp = ekonValueCopy(vv);
+bool ekonValueSet(EkonValue *v, const EkonValue *vv) {
+  EkonValue *cp = ekonValueCopy(vv);
   if (EKON_UNLIKELY(cp == 0))
     return false;
   if (EKON_UNLIKELY(v->n == 0)) {
@@ -3374,7 +3596,7 @@ bool ekonValueSet(struct EkonValue *v, const struct EkonValue *vv) {
   v->n->len = cp->n->len;
   if (v->n->ekonType == EKON_TYPE_ARRAY || v->n->ekonType == EKON_TYPE_OBJECT) {
     v->n->end = vv->n->end;
-    struct EkonNode *next = v->n->value.node;
+    EkonNode *next = v->n->value.node;
     while (EKON_LIKELY(next != 0)) {
       next->father = v->n;
       next = next->next;
@@ -3384,7 +3606,7 @@ bool ekonValueSet(struct EkonValue *v, const struct EkonValue *vv) {
 }
 
 // add obj fast
-bool ekonValueObjAddFast(struct EkonValue *v, struct EkonValue *vv) {
+bool ekonValueObjAddFast(EkonValue *v, EkonValue *vv) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_OBJECT))
@@ -3411,7 +3633,7 @@ bool ekonValueObjAddFast(struct EkonValue *v, struct EkonValue *vv) {
 }
 
 // 函数说明详见《API》
-bool ekonValueObjAdd(struct EkonValue *v, const struct EkonValue *vv) {
+bool ekonValueObjAdd(EkonValue *v, const EkonValue *vv) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_OBJECT))
@@ -3420,7 +3642,7 @@ bool ekonValueObjAdd(struct EkonValue *v, const struct EkonValue *vv) {
     return false;
   if (EKON_UNLIKELY(vv->n->key == 0))
     return false;
-  struct EkonValue *cp = ekonValueCopy(vv);
+  EkonValue *cp = ekonValueCopy(vv);
   if (EKON_UNLIKELY(cp == 0))
     return false;
   cp->n->father = v->n;
@@ -3438,7 +3660,7 @@ bool ekonValueObjAdd(struct EkonValue *v, const struct EkonValue *vv) {
 }
 
 // Copy arrays from v to vv
-bool ekonValueArrayAddFast(struct EkonValue *v, struct EkonValue *vv) {
+bool ekonValueArrayAddFast(EkonValue *v, EkonValue *vv) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_ARRAY))
@@ -3462,12 +3684,12 @@ bool ekonValueArrayAddFast(struct EkonValue *v, struct EkonValue *vv) {
 }
 
 // 函数说明详见《API》
-bool ekonValueArrayAdd(struct EkonValue *v, const struct EkonValue *vv) {
+bool ekonValueArrayAdd(EkonValue *v, const EkonValue *vv) {
   if (EKON_UNLIKELY(v->n == 0))
     return false;
   if (EKON_UNLIKELY(v->n->ekonType != EKON_TYPE_ARRAY))
     return false;
-  struct EkonValue *cp = ekonValueCopy(vv);
+  EkonValue *cp = ekonValueCopy(vv);
   if (EKON_UNLIKELY(cp == 0))
     return false;
   cp->n->key = 0;
@@ -3486,17 +3708,70 @@ bool ekonValueArrayAdd(struct EkonValue *v, const struct EkonValue *vv) {
 }
 
 // 函数说明详见《API》
-bool ekonValueArrayDel(struct EkonValue *v, uint32_t index) {
-  struct EkonValue *dv = ekonValueArrayGet(v, index);
+bool ekonValueArrayDel(EkonValue *v, u32 index) {
+  EkonValue *dv = ekonValueArrayGet(v, index);
   if (EKON_UNLIKELY(dv == 0))
     return false;
   return ekonValueMove(dv);
 }
 
 // 函数说明详见《API》
-bool ekonValueObjDel(struct EkonValue *v, const char *key) {
-  struct EkonValue *dv = ekonValueObjGet(v, key);
+bool ekonValueObjDel(EkonValue *v, const char *key) {
+  EkonValue *dv = ekonValueObjGet(v, key);
   if (EKON_UNLIKELY(dv == 0))
     return false;
   return ekonValueMove(dv);
+}
+
+/**
+ * @brief set key and value for an object
+ * @param objVal the object EkonValue where newNode is a field
+ * @param newNode newNode will already be allocated and filled
+ *                ekonType, option, key, keyLen, keymap, value, len
+ * */
+bool ekonValueSetKeyValue(EkonValue *objVal, EkonNode *newNode) {
+  EkonNode *oldNode =
+      ekonHashmapGet(objVal->n->keymap, newNode->key, newNode->keyLen);
+  if (oldNode == NULL) {
+    // if the node doesn't exist, pui it at the end
+    EkonNode *objN = objVal->n;
+
+    newNode->prev = objN->end;
+    newNode->next = NULL;
+    objN->end->next = newNode;
+    objN->end = newNode;
+  } else {
+    // if the node already exists, maintain the position of the node
+    newNode->prev = oldNode->prev;
+    newNode->next = oldNode->next;
+    newNode->end = oldNode->end;
+    newNode->father = oldNode->father;
+  }
+
+  // replace anyways
+  newNode->hashItem = (EkonHashmapItem *)ekonAllocatorAlloc(
+      objVal->a, sizeof(EkonHashmapItem *));
+  if (ekonHashmapPut(objVal->a, objVal->n->keymap, newNode->key,
+                     newNode->keyLen, newNode, &newNode->hashItem) == false)
+    return false;
+
+  return true;
+}
+
+/**
+ * @brief provide `key`, `keyLen` and get objNode
+ * @param objNode the object node whose field is the outNode
+ * @param key key whose value to get. NOTE. key[0] is the start of the char
+ * array
+ * @param keyLen u32
+ * @param outValue the pointer to (pointer to the outValue where the value is
+ * stored)
+ * @return `true` for success/found and `false` for failure/not-found
+ * */
+bool ekonValueGetValue(EkonValue *objNode, const char *key, const u32 keyLen,
+                       EkonNode **outValue) {
+  *outValue = ekonHashmapGet(objNode->n->keymap, key, keyLen);
+  if (*outValue == NULL)
+    return false;
+  return true;
 }

@@ -1,5 +1,5 @@
-#include "../../ekon.h"
-#include "../test.h"
+#include "ekon.h"
+#include "test.h"
 
 using namespace std;
 
@@ -23,12 +23,13 @@ void EKONCheckerTest() {
     ss << i;
     ss << ".ekon";
     string json = Read(ss.str());
-    Allocator *A = NewAllocator();
-    Value *v = NewValue(A);
+    EkonAllocator *A = ekonAllocatorNew();
+    EkonValue *v = ekonValueNew(A);
     char *errorString = getChar();
-    bool ret = ParseFast(v, json.c_str(), &errorString);
+    char *schema = NULL;
+    bool ret = ekonValueParseFast(v, json.c_str(), &errorString, &schema);
     CheckRet(__func__, __LINE__, ss.str(), ret == false);
-    ReleaseAllocator(A);
+    ekonAllocatorRelease(A);
     delete errorString;
   }
   data_path = rootPath + "data/ekonchecker/pass";
@@ -38,12 +39,13 @@ void EKONCheckerTest() {
     ss << i;
     ss << ".ekon";
     string json = Read(ss.str());
-    Allocator *A = NewAllocator();
-    Value *v = NewValue(A);
+    EkonAllocator *A = ekonAllocatorNew();
+    EkonValue *v = ekonValueNew(A);
     char *err = getChar();
-    bool ret = ekonValueParseFast(v, json.c_str(), &err);
+    char *schema = NULL;
+    bool ret = ekonValueParseFast(v, json.c_str(), &err, &schema);
     CheckRet(__func__, __LINE__, ss.str(), ret == true);
-    ReleaseAllocator(A);
+    ekonAllocatorRelease(A);
     delete err;
   }
 }
@@ -54,34 +56,35 @@ void RoundTripTest() {
     ss << data_path;
     if (i < 10)
       ss << "0";
-    ss << i;
     ss << ".ekon";
     string json = Read(ss.str());
-    Allocator *A = NewAllocator();
-    Value *v = NewValue(A);
+    EkonAllocator *A = ekonAllocatorNew();
+    EkonValue *v = ekonValueNew(A);
     char *err = getChar();
-    bool ret = ParseFast(v, json.c_str(), &err);
-    const char *ret_json = StringifyToJSON(v);
+    char *schema = NULL;
+    bool ret = ekonValueParseFast(v, json.c_str(), &err, &schema);
+    const char *ret_json = ekonValueStringifyToJSON(v, false);
     CheckRet(__func__, __LINE__, ss.str(), ret == true);
     CheckRet(__func__, __LINE__, ss.str(), ret_json != 0);
     CheckRet(__func__, __LINE__, ss.str(),
              string(json.c_str()) == string(ret_json));
-    ReleaseAllocator(A);
+    ekonAllocatorRelease(A);
     delete err;
   }
 }
 void StringTestOne(const string &s, const string &e) {
-  Allocator *A = NewAllocator();
-  Value *v = NewValue(A);
+  EkonAllocator *A = ekonAllocatorNew();
+  EkonValue *v = ekonValueNew(A);
   char *err = getChar();
-  bool ret = Parse(v, s.c_str(), &err);
+  char *schema = NULL;
+  bool ret = ekonValueParseFast(v, s.c_str(), &err, &schema);
   CheckRet(__func__, __LINE__, s.c_str(), ret == true);
-  Value *vv = ArrayGet(v, 0);
+  EkonValue *vv = ekonValueArrayGet(v, 0);
   CheckRet(__func__, __LINE__, s.c_str(), vv != 0);
-  const char *ret_str = GetUnEscapeStr(vv);
+  const char *ret_str = ekonValueGetUnEspaceStr(vv);
   CheckRet(__func__, __LINE__, s.c_str(), ret_str != 0);
   CheckRet(__func__, __LINE__, s.c_str(), e == string(ret_str));
-  ReleaseAllocator(A);
+  ekonAllocatorRelease(A);
   delete err;
 }
 void StringTest() {
@@ -99,17 +102,20 @@ void StringTest() {
   TEST_STRING("[\"\xF0\x9D\x84\x9E\"]", "\xF0\x9D\x84\x9E");
 }
 void DoubleTestOne(const string &s, double e) {
-  Allocator *A = NewAllocator();
-  Value *v = NewValue(A);
+  EkonAllocator *A = ekonAllocatorNew();
+  EkonValue *v = ekonValueNew(A);
   char *err = getChar();
-  bool ret = Parse(v, s.c_str(), &err);
+  char *schema = NULL;
+  bool ret = ekonValueParseFast(v, s.c_str(), &err, &schema);
   CheckRet(__func__, __LINE__, s.c_str(), ret == true);
-  Value *vv = ArrayGet(v, 0);
+  EkonValue *vv = ekonValueArrayGet(v, 0);
   CheckRet(__func__, __LINE__, s.c_str(), vv != 0);
-  const double *d = GetNum(vv);
+
+  double d = 0.0;
+  ekonValueGetNum(vv, &d);
   CheckRet(__func__, __LINE__, s.c_str(), d != 0);
-  CheckRet(__func__, __LINE__, s.c_str(), e == *d);
-  ReleaseAllocator(A);
+  CheckRet(__func__, __LINE__, s.c_str(), e == d);
+  ekonAllocatorRelease(A);
   delete err;
 }
 void DoubleTest() {

@@ -4,6 +4,6 @@
     },
     __version = "2.3.9",
     mtimes = {
-        ["xmake.lua"] = 1610175433
+        ["xmake.lua"] = 1610399764
     }
 }

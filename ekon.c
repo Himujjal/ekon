@@ -254,7 +254,7 @@ bool ekonError(char **outMessage, const char *s, const u32 index) {
   pos--;
 
   // allocate memory for the message
-  *outMessage = malloc(sizeof(char) * 50);
+  *outMessage = (char *)malloc(sizeof(char) * 50);
 
   // error messages will be of format: "<line>:<pos>:<character>" with `:` as
   // delimiter
@@ -580,7 +580,7 @@ void debPrintNodeSing(const EkonNode *n, int depth) {
     printf(",\n");
     debPrintTab(depth);
     printf("\toption:");
-    printOption(n->option, "\t");
+    printOption(n->option, (char *)"\t");
     printf(",\n");
     debPrintTab(depth);
     printf("\tvalue.str:");
@@ -1809,7 +1809,8 @@ bool ekonValueParseFast(EkonValue *v, const char *s, char **errMessage,
 
   switch (c) {
   case '[': {
-    if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage, 0))
+    if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage,
+                                (const EkonNodeOpt)0))
       break;
     return false;
   }
@@ -1980,9 +1981,9 @@ bool ekonValueParseFast(EkonValue *v, const char *s, char **errMessage,
   }
 
   if (isRootNoCurlyBrace == true) {
-    if (ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage,
-                                EKON_OPT_IS_OBJ | EKON_OPT_IS_ROOT_OBJ) ==
-        false) {
+    if (ekonNodeAddObjOrArrNode(
+            &node, v, srcNode, s, &index, errMessage,
+            (const EkonNodeOpt)(EKON_OPT_IS_OBJ | EKON_OPT_IS_ROOT_OBJ)) == 0) {
       return false;
     }
   }
@@ -2004,7 +2005,7 @@ bool ekonValueParseFast(EkonValue *v, const char *s, char **errMessage,
     case '[': {
       EkonNode *currNode = node;
       if (!ekonNodeAddObjOrArrNode(&node, v, srcNode, s, &index, errMessage,
-                                   0)) {
+                                   (const EkonNodeOpt)0)) {
         return false;
       }
 
@@ -2584,7 +2585,7 @@ const char *ekonValueBeautify(EkonValue *v, char **err, bool unEscapeString,
       if (ekonUtilAppendArray(str, &node) == false)
         return 0;
       if (ekonStringAppendStr(str, "\n", 1) == false)
-        return false;
+        return 0;
       if (currentNode == node)
         break;
       continue;
@@ -2595,7 +2596,7 @@ const char *ekonValueBeautify(EkonValue *v, char **err, bool unEscapeString,
       if (ekonUtilAppendObj(str, &node, false) == false)
         return 0;
       if (ekonStringAppendStr(str, "\n", 1) == false)
-        return false;
+        return 0;
       if (currentNode == node)
         break;
       continue;

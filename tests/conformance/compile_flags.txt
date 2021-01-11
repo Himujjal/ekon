@@ -1,6 +1,8 @@
 -DDEBUG_FUNC
 -DHASHMAP_TEST
 -I/usr/include/c++/8
+-I..
+-I../..
 -I/usr/include/x86_64-linux-gnu/c++/8
 -L/usr/lib/gcc/x86_64-linux-gnu/8
 -std=c++11

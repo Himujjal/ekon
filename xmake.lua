@@ -3,25 +3,33 @@ add_rules("mode.debug", "mode.release")
 
 -- define target
 target("ekon")
-
-    -- set kind
     set_kind("static")
-
-    -- add files
-    add_files("hashmap.c")
     add_files("ekon.c")
 
 -- define target
 target("a_basic_tests")
-
     -- set kind
     set_kind("binary")
-
     -- add files
     add_files("a_basic_tests.c")
-
     -- add deps
     add_deps("ekon")
+
+target('tests')
+    set_kind('binary')
+    set_languages("c++11")
+    -- set compiler
+    set_toolset('cxx', 'g++')
+    set_toolset('ld', 'g++')
+    -- set kind
+    -- add files
+    add_files('./tests/conformance/conformance_test.cpp')
+    --add include directories
+    add_includedirs('.')
+    add_includedirs('./tests')
+    -- add deps
+    add_deps("ekon")
+
 
 
 --

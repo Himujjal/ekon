@@ -1,10 +1,11 @@
 # no editor based configs
 .vscode
 
+# object files and executables
+*.o
 
-# all executables
-a_basic_tests
-main
-ekon
-unQuotedStringValidity
+# xmake files
+build
+xmake
+
 

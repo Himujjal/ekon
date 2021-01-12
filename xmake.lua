@@ -1,6 +1,10 @@
 -- add rules: debug/release
 add_rules("mode.debug", "mode.release")
 
+set_languages('c99','c++11')
+set_project('ekon')
+set_version('0.0.1')
+
 -- define target
 target("ekon")
     set_kind("static")
@@ -15,22 +19,21 @@ target("a_basic_tests")
     -- add deps
     add_deps("ekon")
 
+target('ekonpp')
+    -- set_toolset('cxx', 'g++')
+    set_toolset('cc', 'g++')
+    set_toolset('ld', 'g++')
+    set_kind("static")
+    add_files("ekon.c")
+
 target('tests')
     set_kind('binary')
-    set_languages("c++11")
-    -- set compiler
     set_toolset('cxx', 'g++')
     set_toolset('ld', 'g++')
-    -- set kind
-    -- add files
+    add_files('ekon.c')
     add_files('./tests/conformance/conformance_test.cpp')
-    --add include directories
     add_includedirs('.')
     add_includedirs('./tests')
-    -- add deps
-    add_deps("ekon")
-
-
 
 --
 -- If you want to known more usage about xmake, please see https://xmake.io

@@ -7,53 +7,78 @@
 #include <stdlib.h>  // import atof, atoi, atol, atoll, malloc, free
 #include <string.h>  // import memcpy
 
-#include "common.h"
+// ----------------------------------------------------------
+// INCLUDES & PLATFORM SPECIFIC MACROS
+// ----------------------------------------------------------
+#if defined(_MSC_VER)
+// Workaround a bug in the MSVC runtime where it uses __cplusplus when not
+// defined.
+#pragma warning(push, 0)
+#pragma warning(disable : 4668)
+#endif
+// ---INCLUDES--
+
+#if (defined(_MSC_VER) && defined(__AVX__)) ||                                 \
+    (!defined(_MSC_VER) && defined(__SSE4_2__))
+#define HASHMAP_SSE42
+#endif
+
+#if defined(HASHMAP_SSE42)
+#include <nmmintrin.h>
+#endif
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+
+#if defined(_MSC_VER)
+#pragma warning(push)
+// Stop MSVC complaining about not inlining functions.
+#pragma warning(disable : 4710)
+// Stop MSVC complaining about inlining functions!
+#pragma warning(disable : 4711)
+#elif defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-function"
+#endif
+
+#if defined(_MSC_VER)
+#define HASHMAP_USED
+#elif defined(__GNUC__)
+#define HASHMAP_USED __attribute__((used))
+#else
+#define HASHMAP_USED
+#endif
+
+// ----------- Random macros -------------
+// max chain length
+#define HASHMAP_MAX_CHAIN_LENGTH (8)
+// ------------------------------------------------
 
 // A few types I use regularly
+#define i8 int8_t
 #define u8 uint8_t
 #define u16 uint16_t
 #define u32 uint32_t
 
-// from hashmap.h
-
 static const bool ekonTrue = true;
 static const bool ekonFalse = false;
 
+// type declarations
+struct _EkonNode;
+struct hashmap_element_s;
+struct hashmap_s;
+
 // enumerate types with numbers
-/* enum _EkonType { */
-/*   EKON_TYPE_BOOL, */
-/*   EKON_TYPE_ARRAY, */
-/*   EKON_TYPE_OBJECT, */
-/*   EKON_TYPE_STRING, */
-/*   EKON_TYPE_NULL, */
-/*   EKON_TYPE_NUMBER, */
-/* }; */
-/* #define EkonType enum _EkonType */
-
-// The primary json node
-/* struct { */
-/*   EkonType ekonType; */
-/*   uint8_t option; */
-/*   const char *key; */
-/*   u32 keyLen; */
-
-/*   EkonHashmap *keyTable; // duplicate prevention & faster retrieval of
- * objects */
-
-/*   // pointer to (pointer to the current node in `keyTable`) */
-/*   struct _EkonNode **node; */
-
-/*   union { */
-/*     struct _EkonNode *node; */
-/*     const char *str; */
-/*   } value; */
-/*   u32 len; // string length */
-/*   struct _EkonNode *next; */
-/*   struct _EkonNode *prev; */
-/*   struct _EkonNode *father; */
-/*   struct _EkonNode *end; */
-/* } _EkonNode; */
-/* #define EkonNode struct _EkonNode */
+enum _EkonType {
+  EKON_TYPE_BOOL,
+  EKON_TYPE_ARRAY,
+  EKON_TYPE_OBJECT,
+  EKON_TYPE_STRING,
+  EKON_TYPE_NULL,
+  EKON_TYPE_NUMBER,
+};
+typedef enum _EkonType EkonType;
 
 typedef enum {
   EKON_IS_KEY_SPACED = 1 << 0,
@@ -70,29 +95,73 @@ typedef enum {
   EKON_IS_NUM_INT = 1 << 11
 } EKON_NODE_OPTIONS;
 
-#define EkonOption uint16_t
-
 /* // Node for allocator */
-/* struct _EkonANode { */
-/*   char *data; */
-/*   u32 size; */
-/*   u32 pos; */
-/*   struct _EkonANode *next; */
-/* }; */
-/* #define EkonANode struct _EkonANode */
+struct _EkonANode {
+  char *data;
+  u32 size;
+  u32 pos;
+  struct _EkonANode *next;
+};
+typedef struct _EkonANode EkonANode;
 
-/* // Allocator */
-/* struct _EkonAllocator { */
-/*   EkonANode *root; */
-/*   EkonANode *end; */
-/* }; */
-/* #define EkonAllocator struct _EkonAllocator */
+// Allocator
+struct _EkonAllocator {
+  EkonANode *root;
+  EkonANode *end;
+};
+typedef struct _EkonAllocator EkonAllocator;
 
 // Ekon value
-typedef struct {
-  EkonNode *n;
+//
+// HashMapItem
+struct hashmap_element_s {
+  const char *key;
+  u32 keyLen;
+  bool inUse;
+  struct _EkonNode *value;
+};
+typedef struct hashmap_element_s EkonHashmapItem;
+
+// HashMap
+struct hashmap_s {
+  u32 tableSize; // max size
+  u32 size;      // current size
+  EkonHashmapItem *data;
+};
+typedef struct hashmap_s EkonHashmap;
+
+// The primary json node
+struct _EkonNode {
+  EkonType ekonType;
+  uint8_t option;
+  const char *key;
+  u32 keyLen;
+
+  EkonHashmap *keymap; // duplicate prevention & faster retrieval of objects
+
+  // pointer to (pointer to the current node in `keyTable`)
+  EkonHashmapItem *hashItem;
+
+  struct _EkonNode **node;
+  union {
+    struct _EkonNode *node;
+    const char *str;
+  } value;
+  u32 len; // string length
+  struct _EkonNode *next;
+  struct _EkonNode *prev;
+  struct _EkonNode *father;
+  struct _EkonNode *end;
+};
+typedef struct _EkonNode EkonNode;
+
+struct _EkonValue {
   EkonAllocator *a;
-} EkonValue;
+  EkonNode *n;
+};
+typedef struct _EkonValue EkonValue;
+
+#define EkonOption uint16_t
 
 typedef struct EkonBeautifyOptions {
   bool unEscapeString;
@@ -106,7 +175,7 @@ struct _EkonString {
   u32 size;
   EkonAllocator *a;
 };
-#define EkonString struct _EkonString
+typedef struct _EkonString EkonString;
 
 static const u32 ekonDelta = 2;
 static const u32 ekonAllocatorInitMemSize = 1024 * 4;

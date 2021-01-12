@@ -1,28 +1,16 @@
 {
+    __version = "2.3.9",
     cmdlines = {
-        "xmake build tests",
-        "xmake build tests",
-        "xmake build tests",
-        "xmake build ekon",
-        "xmake build tests",
-        "xmake build ekon",
-        "xmake build tests",
-        "xmake build a_basic_tests.c",
-        "xmake build a_basic_tests",
-        "xmake build tests",
-        "xmake build tests",
-        "xmake build tests",
-        "xmake build tests",
-        "xmake build tests",
-        "xmake build tests",
+        "xmake b tests",
+        "xmake b tests",
+        "xmake b tests",
         "xmake f -m debug",
+        "xmake b tests",
+        "xmake b tests",
+        "xmake -r -vD",
+        "xmake build ekonpp",
         "xmake build tests",
-        "xmake ",
-        "xmake -P",
-        "xmake ",
-        "xmake create -l c -t console test",
-        "xmake create -l c++ -t console test",
-        "xmake "
-    },
-    __version = "2.3.9"
+        "xmake build tests",
+        "xmake run tests"
+    }
 }

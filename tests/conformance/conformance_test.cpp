@@ -14,6 +14,8 @@ static string rootPath = "tests/conformance/";
 static string rootPath = "";
 #endif
 
+EkonAllocator *ekonAllocatorNew();
+
 void EKONCheckerTest() {
   string data_path = rootPath + "data/ekonchecker/fail";
   const int failCounts = 23, passCounts = 16;

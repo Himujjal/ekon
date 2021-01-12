@@ -1,9 +1,4 @@
 {
-    depfiles_gcc = "build/.objs/tests/linux/x86_64/release/tests/conformance/conformance_test.cpp.o:  tests/conformance/conformance_test.cpp ekon.h common.h tests/test.h\
-",
-    files = {
-        "tests/conformance/conformance_test.cpp"
-    },
     values = {
         "g++",
         {
@@ -15,5 +10,10 @@
             "-I.",
             "-Itests"
         }
+    },
+    depfiles_gcc = "build/.objs/tests/linux/x86_64/release/tests/conformance/conformance_test.cpp.o:  tests/conformance/conformance_test.cpp ekon.h common.h tests/test.h\
+",
+    files = {
+        "tests/conformance/conformance_test.cpp"
     }
 }

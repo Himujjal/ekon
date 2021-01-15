@@ -377,7 +377,7 @@ bool ekonValueIsNull(const EkonValue *v);
  * @param outKeyLen   keylen is stored
  * @return            pointer to the newly allocated key
  * */
-const char *ekonValueGetKey(EkonValue *v, uint8_t *outOption, u32 *outKeyLen);
+const char *ekonValueGetKey(EkonValue *v, EkonOption *outOption, u32 *outKeyLen);
 
 /**
  * @brief Get Unescaped key from a node

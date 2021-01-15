@@ -8,12 +8,11 @@
 // Get the EKON and Set some EKON
 void getAndSet(EkonValue *src, EkonValue *des) {
   // Set EKON Type
-  const EkonType *t;
-  t = ekonValueType(src);
+  const EkonType t = ekonValueType(src);
   if (t == 0)
     return;
 
-  switch (*t) {
+  switch (t) {
   case EKON_TYPE_ARRAY: {
     ekonValueSetArray(des);
     EkonValue *next = ekonValueBegin(src);
@@ -32,14 +31,14 @@ void getAndSet(EkonValue *src, EkonValue *des) {
     EkonValue *next = ekonValueBegin(src);
     while (next != 0) {
       EkonValue *v = ekonValueNew(des->a);
-      uint8_t option;
       uint32_t keyLen = 0;
+      EkonOption option;
       const char *key = ekonValueGetKey(next, &option, &keyLen);
       if (src->n->keymap != 0 &&
           ekonHashmapGet(src->n->keymap, key, keyLen) != NULL) {
         // key is already present
       }
-      ekonValueSetKeyFast(v, key, option, true);
+      ekonValueSetKeyFast(v, key),
       getAndSet(next, v);
       if (ekonValueObjAddFast(des, v) != true)
         return;
@@ -48,10 +47,11 @@ void getAndSet(EkonValue *src, EkonValue *des) {
     break;
   }
   case EKON_TYPE_BOOL: {
-    const bool *b = ekonValueGetBool(src);
+    bool outBool;
+    const bool b = ekonValueGetBool(src, &outBool);
     if (b == 0)
       return;
-    ekonValueSetBool(des, *b);
+    ekonValueSetBool(des, &outBool);
     break;
   }
   case EKON_TYPE_NUMBER: {
@@ -69,11 +69,11 @@ void getAndSet(EkonValue *src, EkonValue *des) {
     break;
   }
   case EKON_TYPE_STRING: {
-    uint8_t option;
+    EkonOption option;
     const char *str = ekonValueGetStr(src, &option);
     if (str == 0)
       return;
-    if (!ekonValueSetStrFast(des, str, option)) {
+    if (!ekonValueSetStrFast(des, str)) {
       return;
     }
     break;

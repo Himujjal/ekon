@@ -148,23 +148,29 @@ are valid \
 Unquoted strings can have any characters under the sun except:
 `'` , `"`, `,` , `:` , `[`, `]`, `{`, `}` and whitespace
  characters like: ` `, `\t`, `\r`, `\n`
- (well consider these whitespace as character codes rather than
- actually writing `\n` )
+ also comments start: `//` will mean end of string
+ For all of the above except for spaced character, try wrapping it in quotes.
 
 ```js
 hello
 1230asdsd // anything that's not a valid number is a string
 1331.1312sadasd
 
-^1.2.2  
+^1.2.2   // yeah a string
+!123   // surprinsingly this is a string
+!true  // again. only true or false is supported. sane people won't write this though
 nullable
 truer
 falsee
 
+commentedstr//hello   // this string will be parsed as `commented`
+commentedstr\/\/hello  // this string will be parsed as `commentedstr//hello`
+
+https\:\/\/github.com // supported. but try not doing so much work and simply cover it with quotes. lol.
+
 unicode\u1344SupportToo! // unicode should be parsed into `\u1344` as unicode yes that ! is also a part
-newl\nine // yes literally \n should be parsed as being '\' and 'n'
-            // but when the string value is taken make it `\n` character
-ta\tb
+newl\nine // beware of this though it is supported. the output will unescape \n
+ta\tb // same here!
 (1+2) // its a string! but why would you write this?!
 
 tab\:hello // not a string. will be considered as tab\ : hello
@@ -181,6 +187,13 @@ Arrays have 0 or more scalar compound nodes under its belt. commas
  are optional as delimiters in arrays.
  but do prefer writing them when representing arrays
  that fit in 1 line. ()
+
+ How to write an array node:
+ ```js
+ [ (EkonNode)* ]
+ ```
+
+Example:
 
 ```js
 []

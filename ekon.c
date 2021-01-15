@@ -3406,7 +3406,7 @@ bool ekonValueIsNull(const EkonValue *v) {
   return true;
 }
 
-const char *ekonValueGetKey(EkonValue *v, uint8_t *outOption, u32 *outKeyLen) {
+const char *ekonValueGetKey(EkonValue *v, EkonOption *outOption, u32 *outKeyLen) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->key == 0))

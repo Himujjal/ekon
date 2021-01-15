@@ -3,6 +3,7 @@
 
 # object files and executables
 *.o
+*.exe
 
 # xmake files
 build

@@ -6,6 +6,8 @@
 
 # xmake files
 build
-xmake
+.xmake
+
+
 
 

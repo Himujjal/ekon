@@ -39,7 +39,7 @@ static inline void ekonSchemaNodeAddType(EkonSchemaNode *node,
 static inline void ekonSchemaNodeAddNode(EkonSchemaNode *father,
                                          EkonSchemaNode *child);
 static inline void ekonParseSchema(char *schema, u32 len);
-// ----------- ------------------- -------------
+// ---------------------------------------------
 
 static inline EkonSchemaNode *ekonInitSchemaNode() {
   EkonSchemaNode *node = (EkonSchemaNode *)malloc(sizeof(EkonSchemaNode));
@@ -59,8 +59,8 @@ static inline void ekonSchemaNodeAddType(EkonSchemaNode *node,
                                          EkonSchemaType typ) {
   if (node->numTypes == node->typesSize) {
     node->typesSize *= 2;
-    node->nodeTypes =
-        realloc(node->nodeTypes, node->typesSize * sizeof(EkonSchemaType));
+    node->nodeTypes = (EkonSchemaType *)realloc(
+        node->nodeTypes, node->typesSize * sizeof(EkonSchemaType));
   }
   node->nodeTypes[node->numTypes++] = typ;
 }

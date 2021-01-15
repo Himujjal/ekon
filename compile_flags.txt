@@ -1,5 +1,6 @@
 -DDEBUG_FUNC
 -DHASHMAP_TEST
+-I./tests
 -I/usr/include/c++/8
 -I/usr/include/x86_64-linux-gnu/c++/8
 -L/usr/lib/gcc/x86_64-linux-gnu/8

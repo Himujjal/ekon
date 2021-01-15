@@ -62,7 +62,7 @@ nullValue: null  // Yeah! commas are finally optional
 // Unquoted Strings are simple one word strings & have a few conditions:
 //  1. No WhiteSpace characters
 //  2. characters:
-//      - ':', '{', '}', '[', ']', "'", '"', ',' will be parsed as end of strings
+//      - ':', '{', '}', '[', ']', "'", '"', ',' will be parsed as end of unquoted strings
 //      - If you wish to use the above in strings, use quoted strings instead.
 //          Escape characters will not be supported in strings
 //  3. "//" WON'T be parsed as string. It will be parsed as a part of comments

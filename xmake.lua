@@ -28,10 +28,16 @@ target('ekonpp')
 
 target('tests')
     set_kind('binary')
+
+    -- set_toolset('cxx', 'g++')
+    -- set_toolset('ld', 'g++')
+    -- add_files('./ekon.c')
+    add_deps('ekonpp')
+
     set_toolset('cxx', 'g++')
     set_toolset('ld', 'g++')
-    add_files('ekon.c')
     add_files('./tests/conformance/conformance_test.cpp')
+
     add_includedirs('.')
     add_includedirs('./tests')
 

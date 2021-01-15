@@ -10,6 +10,16 @@
 static int SuccCount = 0;
 static int FailCount = 0;
 
+#ifdef _WIN32
+#include <windows.h>
+#elif defined(__linux__)
+#include <unistd.h>
+#elif defined(__APPLE__) && defined(__MACH__)
+#include <TargetConditionals.h>
+#endif
+
+#define PROJECT_FOLDER_PATH ("/home/himu/my_code/ekscript/ekon/")
+
 // Check which parts of the program failed
 static void CheckRet(const char *func, unsigned int line, std::string str,
                      bool ret) {

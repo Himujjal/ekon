@@ -1,5 +1,5 @@
 {
-  "watch": ["ekon.c", "ekon.h", "*.ekon"],
-  "ext": "c,h,ekon",
+  "watch": ["ekon.c", "ekon.h", "*.ekon", "tests/**/*.cpp", "tests/**/*.hpp"],
+  "ext": "c,h,cpp,hpp,ekon",
   "exec": "clear && xmake build tests && xmake run tests"
 }

@@ -1,20 +1,20 @@
 `export { someType as root } from './spec.d.ts';`
 
-hello: -1_7.13e-01
-nullValue: null
+// hello: -1_7.13e-01
+// nullValue: null
 // unquotedKey:forSimpleOneWordStrings
 // unquotedKey2:john_doe@gmail.com
 // doubleQuotes: "hello this \" \\'..\\' is" // prefer single-quotes though
 // singleQuotes: 'You can use \u0110 "double-quotes" inside'
-// yo: 'intmain(){hello:world}'
+//yo: 'intmain(){hello:world}'
 // multilineSingleQuote: '
 // This is
 // multiline
 // string'
-// 'single QuotedKey':'Prefer single-quotes over double-quotes for keys'
+'single QuotedKey':'Prefer single-quotes over double-quotes for keys'
 
-// unicode:hello\u1011
-// intNumber:100
+unicode:hello\u1011
+intNumber:100
 // floatingPointNumber:-0.916
 // positiveSignNumber:+10348.219
 // hexadecimalNumber: 0xFF

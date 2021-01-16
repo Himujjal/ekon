@@ -1,3 +1,5 @@
+# C API
+
 # Data Structures that are being used in the following parser.
 
 ### This document servers as a reference to the Data Structures being used in the `ekon.h` based file

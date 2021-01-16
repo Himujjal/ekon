@@ -1,4 +1,4 @@
-# Specifications of EKOwN
+# Specifications of EKON
 
 TL;DR:
 > Strip away commas `,`, strip away the quotes `""` for

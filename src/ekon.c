@@ -96,7 +96,7 @@ extern "C" {
 /// @brief Create a hashmap
 /// @param initSize The initial size of the hashmap. Power of 2 otherwise
 /// error
-/// @param outHashmap The storage for the created hashmap
+/// @param outHashmap The storage for the created hashmap. Allocate this
 /// @return On success `true` is returned
 static bool ekonHashmapInit(EkonAllocator *a, const u32 initSize,
                             EkonHashmap *const outHashMap);
@@ -182,6 +182,7 @@ bool ekonHashmapInit(EkonAllocator *a, const u32 initSize,
                      EkonHashmap *const outHashmap) {
   if (initSize == 0 || (initSize & (initSize - 1)) != 0)
     return false;
+
   outHashmap->data =
       HASHMAP_CAST(EkonHashmapItem *,
                    ekonAllocatorAlloc(a, initSize * sizeof(EkonHashmapItem)));
@@ -529,9 +530,7 @@ bool ekonIsBracket(const char c) {
   }
 }
 
-/**
- * @brief check if character is among: <space> \t \n \r [ ] { } ' " , : \0
- */
+// @brief check if character is among: <space> \t \n \r [ ] { } ' " , : \0
 bool ekonIsNonUnquotedStrChar(const char c) {
   switch (c) {
   case ' ':
@@ -762,24 +761,27 @@ u32 ekonLongLongToStr(long long n, char *buff) {
   return snprintf(buff, 24, "%lld", n);
 }
 
-/* double->str  */
+// double->str
 u32 ekonDoubleToStr(f64 n, char *buff) {
   return snprintf(buff, 32, "%.17g", n);
 }
 
-bool ekonParseError(char **outMessage, const char *s, const u32 index) {
-  u32 pos = 1;
-  u32 line = 1;
+void ekonUpdateErrorVars(const char *s, const u32 index, u32 *pos, u32 *line) {
   u32 cursor = 0;
   while (s[cursor] != 0 && cursor != index) {
     if (s[cursor] == '\n') {
-      pos = 0;
-      line++;
+      *pos = 0;
+      (*line)++;
     }
-    pos++;
+    (*pos)++;
     cursor++;
   }
-  pos--;
+  (*pos)--;
+}
+
+bool ekonParseError(char **outMessage, const char *s, const u32 index) {
+  u32 pos = 1, line = 1, cursor = 0;
+  ekonUpdateErrorVars(s, index, &pos, &line);
 
   // allocate memory for the message
   *outMessage = (char *)malloc(sizeof(char) * 50);
@@ -795,17 +797,8 @@ bool ekonParseError(char **outMessage, const char *s, const u32 index) {
 
 bool ekonDuplicateKeyError(char **outMessage, const char *s, const u32 index,
                            const u32 keyLen) {
-  u32 pos = 1;
-  u32 line = 1;
-  u32 cursor = 0;
-  while (s[cursor] != 0 && cursor != index) {
-    if (s[cursor] == '\n') {
-      pos = 0;
-      line++;
-    }
-    pos++;
-    cursor++;
-  }
+  u32 pos = 1, line = 1, cursor = 0;
+  ekonUpdateErrorVars(s, index, &pos, &line);
 
   *outMessage = (char *)malloc(sizeof(char) * (100 + keyLen));
   char *key = (char *)malloc((sizeof(char) * (keyLen + 1)));
@@ -813,7 +806,17 @@ bool ekonDuplicateKeyError(char **outMessage, const char *s, const u32 index,
   key[index] = '\0';
 
   // <line>:<pos>:<key>:<message>
-  snprintf(*outMessage, 100, "%d:%d:%s:Duplicate key", line, pos, key);
+  snprintf(*outMessage, 100, "%d:%d:%s:Duplicate Key", line, pos, key);
+  return false;
+}
+
+bool ekonEmptyKeyError(char **outMessage, const char *s, const u32 index) {
+  u32 pos = 1, line = 1, cursor = 0;
+  ekonUpdateErrorVars(s, index, &pos, &line);
+
+  // <line>:<pos>:<message>
+  *outMessage = (char *)malloc(sizeof(char) * 100);
+  snprintf(*outMessage, 100, "%d:%d:Empty Key", line, pos);
   return false;
 }
 
@@ -1038,7 +1041,7 @@ void debPrintBoolM(const bool b, const char *mes) {
 #endif
 }
 
-void printOption(u16 option, char *delimiter) {
+void printOption(EkonOption option, char *delimiter) {
 #define TORF(x) (((option & (x)) != 0) == true ? "true" : "false")
   printf("%sisKeySpaced:%s,", delimiter, TORF(EKON_IS_KEY_SPACED));
   printf("%sisKeyMultilined:%s,", delimiter, TORF(EKON_IS_KEY_MULTILINED));
@@ -1975,7 +1978,7 @@ bool ekonCheckStrLen(EkonAllocator *alloc, const char *s, u32 len,
  * @param outLen Updates the length of the string
  * @return -1 means last letter is 0, 1 means success, 0 means failure
  * */
-i8 ekonCheckNumWithoutEnd(const char *s, u32 *outLen, u16 *option) {
+i8 ekonCheckNumWithoutEnd(const char *s, u32 *outLen, EkonOption *option) {
   u32 index = 0;
 
   if (s[index] == '-' || s[index] == '+')
@@ -2099,7 +2102,7 @@ i8 ekonCheckNumWithoutEnd(const char *s, u32 *outLen, u16 *option) {
 
 // check a string is a number. note: string should end with '\0'
 bool ekonCheckNum(const char *s, u32 *outLen) {
-  u16 option = 0;
+  EkonOption option = 0;
   i8 res = ekonCheckNumWithoutEnd(s, outLen, &option);
   if (res == 0 || res == 1) {
     return false;
@@ -2108,7 +2111,7 @@ bool ekonCheckNum(const char *s, u32 *outLen) {
 }
 
 // consume a number - hex,
-bool ekonConsumeNum(const char *s, u32 *index, u16 *option) {
+bool ekonConsumeNum(const char *s, u32 *index, EkonOption *option) {
   u32 len = 0;
   if (ekonCheckNumWithoutEnd(s + *index, &len, option) != 0) {
     *index += len;
@@ -2149,7 +2152,7 @@ bool ekonCheckNumLen(EkonAllocator *alloc, const char *s, u32 len) {
  * @param len       length of the string to be added
  * @param option    property of the string that is to be added
  */
-void ekonNodeAddStr(EkonNode *node, const char *s, u32 len, u16 option) {
+void ekonNodeAddStr(EkonNode *node, const char *s, u32 len, EkonOption option) {
   node->option = option;
   node->value.str = s;
   node->len = len;
@@ -2184,7 +2187,8 @@ void ekonNodeAddBoolean(EkonNode *node, bool val) {
     node->hashItem->value = node;
 }
 
-void ekonNodeAddNumber(EkonNode *node, const char *s, u32 len, u16 option) {
+void ekonNodeAddNumber(EkonNode *node, const char *s, u32 len,
+                       EkonOption option) {
   node->value.str = s;
   node->len = len;
   node->option = option;
@@ -2285,7 +2289,7 @@ bool ekonNodeAddObjOrArrNode(EkonNode **outNode, EkonValue *v,
  * @return              success/failure
  * */
 bool ekonNodeAddKey(EkonAllocator *a, EkonNode *node, const char *s, u32 *index,
-                    u16 *option, char **errMessage) {
+                    EkonOption *option, char **errMessage) {
   EkonHashmap *keymap = node->father->keymap;
   bool isKeyUnquoted = ekonIsQuote(s[(*index)]) == false;
 
@@ -2313,23 +2317,11 @@ bool ekonNodeAddKey(EkonAllocator *a, EkonNode *node, const char *s, u32 *index,
     if (quoteType == '"')
       *option |= EKON_IS_KEY_ESCAPABLE;
 
-    u32 start = (++(*index));
+    u32 start = ++(*index);
     const char *key = s + start;
 
     if (EKON_UNLIKELY(ekonUnlikelyConsume(quoteType, s, index))) {
-      if (ekonHashmapGet(keymap, s + start, 0) != 0) {
-        ekonDuplicateKeyError(errMessage, s, *index, 0);
-        return false;
-      } else {
-        *option |= EKON_IS_KEY_SPACED;
-        node->key = key;
-        node->keyLen = 0;
-        node->option = *option;
-        EkonHashmapItem **item =
-            (EkonHashmapItem **)(malloc(sizeof(EkonHashmapItem *)));
-        ekonHashmapPut(a, keymap, key, 0, NULL, item);
-        node->hashItem = *item;
-      }
+      return ekonEmptyKeyError(errMessage, s, *index);
     } else {
       if (EKON_UNLIKELY(ekonConsumeStr(s, index, quoteType, option) == false)) {
         return ekonParseError(errMessage, s, *index);
@@ -2340,15 +2332,9 @@ bool ekonNodeAddKey(EkonAllocator *a, EkonNode *node, const char *s, u32 *index,
         ekonDuplicateKeyError(errMessage, key, *index, keyLen);
         return false;
       } else {
-        if (*option & EKON_IS_STR_SPACED)
-          *option |= EKON_IS_KEY_SPACED;
-        if (*option & EKON_IS_STR_MULTILINED)
-          *option |= EKON_IS_KEY_MULTILINED;
-        *option &= ~EKON_IS_STR_MULTILINED;
-        *option &= ~EKON_IS_STR_SPACED;
         node->key = key;
         node->keyLen = keyLen;
-        node->option = *option;
+        node->option = ekonValueOptionStrToKey(*option);
         EkonHashmapItem **item =
             (EkonHashmapItem **)(malloc(sizeof(EkonHashmapItem *)));
         ekonHashmapPut(a, keymap, key, keyLen, NULL, item);
@@ -2517,7 +2503,7 @@ bool ekonValueParseFast(EkonValue *v, const char *s, char **errMessage,
       break;
     }
 
-    u16 option = 0;
+    EkonOption option = 0;
     if (c == '"')
       option |= EKON_IS_STR_ESCAPABLE;
 
@@ -2538,7 +2524,7 @@ bool ekonValueParseFast(EkonValue *v, const char *s, char **errMessage,
     index--;
     u32 start = index;
     if (c == '-' || c == '+' || (c >= '0' && c <= '9')) {
-      u16 option = 0;
+      EkonOption option = 0;
       if (ekonConsumeNum(s, &index, &option)) {
         u32 numEnd = index;
         if (ekonUnlikelyPeekAndConsume(':', s, &index)) {
@@ -2588,7 +2574,7 @@ bool ekonValueParseFast(EkonValue *v, const char *s, char **errMessage,
   }
 
   while (EKON_LIKELY(node != v->n)) {
-    u16 option = 0;
+    EkonOption option = 0;
     if (node->father->ekonType == EKON_TYPE_OBJECT) {
       if (ekonNodeAddKey(v->a, node, s, &index, &option, errMessage) == 0)
         return false;
@@ -2736,7 +2722,7 @@ bool ekonValueParseFast(EkonValue *v, const char *s, char **errMessage,
 
       index--;
       u32 start = index;
-      u16 option = 0;
+      EkonOption option = 0;
       if (c == '-' || c == '+' || (c >= '0' && c <= '9')) {
         if (ekonConsumeNum(s, &index, &option)) {
           ekonNodeAddNumber(node, s + start, index - start, option);
@@ -3406,7 +3392,8 @@ bool ekonValueIsNull(const EkonValue *v) {
   return true;
 }
 
-const char *ekonValueGetKey(EkonValue *v, EkonOption *outOption, u32 *outKeyLen) {
+const char *ekonValueGetKey(EkonValue *v, EkonOption *outOption,
+                            u32 *outKeyLen) {
   if (EKON_UNLIKELY(v->n == 0))
     return 0;
   if (EKON_UNLIKELY(v->n->key == 0))
@@ -3546,6 +3533,8 @@ bool ekonValueCopyFrom(EkonValue *desV, const EkonValue *srcV) {
 
     // ----- key copy -----
     if (node->key != 0) {
+      if (node->keyLen == 0)
+        return false;
       char *k = ekonAllocatorAlloc(a, node->keyLen);
       if (EKON_UNLIKELY(k == 0))
         return false;
@@ -3890,7 +3879,7 @@ bool ekonValueSetStrLenEscape(EkonValue *v, const char *str, u32 len) {
 
 bool ekonValueSetStrFast(EkonValue *v, const char *str) {
   u32 len = 0;
-  u16 option = 0;
+  EkonOption option = 0;
   if (EKON_UNLIKELY(ekonCheckStr(str, &len, &option) == false)) {
     return false;
   }
@@ -3996,16 +3985,22 @@ bool ekonValueSetKeyFast(EkonValue *v, const char *key) {
   if (EKON_UNLIKELY(ekonCheckStr(key, &len, &option) == false))
     return false;
 
+  if (len == 0) // empty keys not allowed
+    return false;
+
   if (EKON_UNLIKELY(v->n == 0)) {
     v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
       return false;
-    v->n->prev = 0;
-    v->n->father = 0;
-    v->n->next = 0;
-    v->n->ekonType = EKON_TYPE_NULL;
-    v->n->value.str = ekonStrNull;
-    v->n->len = 4;
+    EkonNode *n = v->n;
+    n->prev = 0;
+    n->father = 0;
+    n->next = 0;
+    n->ekonType = EKON_TYPE_NULL;
+    n->value.str = ekonStrNull;
+    n->len = 4;
+    n->hashItem =
+        (EkonHashmapItem *)ekonAllocatorAlloc(v->a, sizeof(EkonHashmapItem));
   } else {
     EkonNode *father = v->n->father;
     if (father != 0 && father->ekonType == EKON_TYPE_OBJECT) {
@@ -4020,7 +4015,7 @@ bool ekonValueSetKeyFast(EkonValue *v, const char *key) {
   n->hashItem->keyLen = len;
   n->key = key;
   n->keyLen = len;
-  n->option = option;
+  n->option = ekonValueOptionStrToKey(option);
   return true;
 }
 
@@ -4028,6 +4023,10 @@ bool ekonValueSetKeyLenFast(EkonValue *v, const char *key, u32 len) {
   EkonOption option;
   if (EKON_UNLIKELY(ekonCheckStrLen(v->a, key, len, &option) == false))
     return false;
+
+  if (len == 0)
+    return false;
+
   if (EKON_UNLIKELY(v->n == 0)) {
     v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
@@ -4063,6 +4062,9 @@ bool ekonValueSetKey(EkonValue *v, const char *key) {
   if (EKON_UNLIKELY(ekonCheckStr(key, &len, &option) == false))
     return false;
 
+  if (len == 0)
+    return false;
+
   if (EKON_UNLIKELY(v->n == 0)) {
     v->n = (EkonNode *)ekonAllocatorAlloc(v->a, sizeof(EkonNode));
     if (EKON_UNLIKELY(v->n == 0))
@@ -4089,6 +4091,8 @@ bool ekonValueSetKey(EkonValue *v, const char *key) {
 
 // copies a key string with length to add to the value
 bool ekonValueSetKeyLen(EkonValue *v, const char *key, u32 len) {
+  if (len == 0)
+    return false;
   EkonOption option;
   if (EKON_UNLIKELY(ekonCheckStrLen(v->a, key, len, &option) == false))
     return false;
@@ -4142,6 +4146,7 @@ bool ekonValueSetObj(EkonValue *v) {
     v->n->prev = 0;
     v->n->father = 0;
     v->n->next = 0;
+    v->n->keymap = (EkonHashmap *)ekonAllocatorAlloc(v->a, sizeof(EkonHashmap));
   }
   if (ekonHashmapInit(v->a, 8, v->n->keymap) == false)
     return false;
@@ -4232,6 +4237,8 @@ bool ekonValueObjAddFast(EkonValue *objV, EkonValue *childV) {
     return false;
   if (EKON_UNLIKELY(ekonValueMoveOutOfArrObj(childV) == false))
     return false;
+  if (childV->n->keyLen == 0)
+    return false;
 
   childV->n->father = objV->n;
   if (ekonHashmapPut(objV->a, objV->n->keymap, childV->n->key,
@@ -4268,6 +4275,8 @@ bool ekonValueObjAdd(EkonValue *objV, const EkonValue *childV) {
     return false;
   cp->n->father = objV->n;
 
+  if (childV->n->keyLen == 0)
+    return false;
   if (ekonHashmapPut(objV->a, objV->n->keymap, childV->n->key,
                      childV->n->keyLen, childV->n,
                      &childV->n->hashItem) == false) {
@@ -4347,41 +4356,6 @@ bool ekonValueObjDel(EkonValue *v, const char *key) {
 }
 
 /**
- * @brief set key and value for an object
- * @param objVal the object EkonValue where newNode is a field
- * @param newNode newNode will already be allocated and filled
- *                ekonType, option, key, keyLen, keymap, value, len
- * */
-bool ekonValueSetKeyValue(EkonValue *objVal, EkonNode *newNode) {
-  EkonNode *oldNode =
-      ekonHashmapGet(objVal->n->keymap, newNode->key, newNode->keyLen);
-  if (oldNode == NULL) {
-    // if the node doesn't exist, pui it at the end
-    EkonNode *objN = objVal->n;
-
-    newNode->prev = objN->end;
-    newNode->next = NULL;
-    objN->end->next = newNode;
-    objN->end = newNode;
-  } else {
-    // if the node already exists, maintain the position of the node
-    newNode->prev = oldNode->prev;
-    newNode->next = oldNode->next;
-    newNode->end = oldNode->end;
-    newNode->father = oldNode->father;
-  }
-
-  // replace anyways
-  newNode->hashItem = (EkonHashmapItem *)ekonAllocatorAlloc(
-      objVal->a, sizeof(EkonHashmapItem *));
-  if (ekonHashmapPut(objVal->a, objVal->n->keymap, newNode->key,
-                     newNode->keyLen, newNode, &newNode->hashItem) == false)
-    return false;
-
-  return true;
-}
-
-/**
  * @brief provide `key`, `keyLen` and get objNode
  * @param objNode the object node whose field is the outNode
  * @param key key whose value to get. NOTE. key[0] is the start of the char
@@ -4395,6 +4369,52 @@ bool ekonValueGetValue(EkonValue *objNode, const char *key, const u32 keyLen,
                        EkonNode **outValue) {
   *outValue = ekonHashmapGet(objNode->n->keymap, key, keyLen);
   if (*outValue == NULL)
+    return false;
+  return true;
+}
+
+bool ekonValueSetKeyValueFast(EkonValue *object, const char *key,
+                              EkonValue *childNodeV) {
+  if (ekonValueSetKeyFast(childNodeV, key) == false) {
+    return false;
+  }
+  if (ekonValueObjAddFast(object, childNodeV) == false) {
+    return false;
+  }
+  return true;
+}
+
+bool ekonValueSetKeyValue(EkonValue *objV, const char *key, EkonValue *childV) {
+  if (ekonValueSetKey(childV, key) == false)
+    return false;
+  if (ekonValueObjAdd(objV, childV) == false)
+    return false;
+  return true;
+}
+
+bool ekonValueSetKeyValueLen(EkonValue *objV, EkonValue *childV,
+                             const char *key, u32 keyLen) {
+  if (ekonValueSetKeyLen(childV, key, keyLen) == false)
+    return false;
+  if (ekonValueObjAdd(objV, childV) == false)
+    return false;
+  return true;
+}
+
+bool ekonValueSetKeyValueEscape(EkonValue *objV, EkonValue *childV,
+                                const char *key) {
+  if (ekonValueSetKeyEscape(childV, key) == false)
+    return false;
+  if (ekonValueObjAdd(objV, childV) == false)
+    return false;
+  return true;
+}
+
+bool ekonValueSetKeyValueEscapeLen(EkonValue *objV, EkonValue *childV,
+                                   const char *key, u32 keyLen) {
+  if (ekonValueSetKeyLenEscape(childV, key, keyLen) == false)
+    return false;
+  if (ekonValueObjAdd(objV, childV) == false)
     return false;
   return true;
 }

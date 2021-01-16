@@ -377,7 +377,8 @@ bool ekonValueIsNull(const EkonValue *v);
  * @param outKeyLen   keylen is stored
  * @return            pointer to the newly allocated key
  * */
-const char *ekonValueGetKey(EkonValue *v, EkonOption *outOption, u32 *outKeyLen);
+const char *ekonValueGetKey(EkonValue *v, EkonOption *outOption,
+                            u32 *outKeyLen);
 
 /**
  * @brief Get Unescaped key from a node
@@ -743,5 +744,80 @@ bool ekonValueArrayDel(EkonValue *arrV, u32 index);
  * @return          success/failure
  * */
 bool ekonValueObjDel(EkonValue *objV, const char *key);
+
+/**
+ * @brief provide `key`, `keyLen` and get objNode
+ * @param objNode the object node whose field is the outNode
+ * @param key key whose value to get. NOTE. key[0] is the start of the char
+ * array
+ * @param keyLen u32
+ * @param outValue the pointer to (pointer to the outValue where the value is
+ * stored)
+ * @return `true` for success/found and `false` for failure/not-found
+ * */
+bool ekonValueGetValue(EkonValue *objNode, const char *key, const u32 keyLen,
+                       EkonNode **outValue);
+
+/**
+ * @brief set key value pair to an object
+ * @param object      object where to put the key value.
+ *                    call ekonValueSetObj before this
+ * @param key         character array representing the key
+ * @param childNodeV  child node which is to be inserted int the object
+ * @return            success/failure
+ * */
+bool ekonValueSetKeyValueFast(EkonValue *object, const char *key,
+                              EkonValue *childNodeV);
+/**
+ * @brief set key and value for an object
+ * @param objVal the object EkonValue where newNode is a field
+ * @param newNode newNode will already be allocated and filled
+ *                ekonType, option, key, keyLen, keymap, value, len
+ * */
+bool ekonValueSetKeyValue(EkonValue *objVal, const char *key,
+                          EkonValue *newNodeV);
+
+/**
+ * @brief set key and value for an object
+ * @param objVal      the object EkonValue where newNode is a field
+ * @param newNode     newNode will already be allocated and filled
+ *                    ekonType, option, key, keyLen, keymap, value, len
+ * */
+bool ekonValueSetKeyValueLen(EkonValue *objV, EkonValue *childV,
+                             const char *key, u32 keyLen);
+
+/**
+ * @brief set key and value for an object
+ * @param objVal      the object EkonValue where newNode is a field
+ * @param newNode     newNode will already be allocated and filled
+ *                    ekonType, option, key, keyLen, keymap, value, len
+ * @param key         key
+ * @param keyLen      length of the key
+ * */
+bool ekonValueSetKeyValueLen(EkonValue *objV, EkonValue *childV,
+                             const char *key, u32 keyLen);
+
+/**
+ * @brief set Escape key and value for an object
+ * @param objVal      the object EkonValue where newNode is a field
+ * @param newNode     newNode will already be allocated and filled
+ *                    ekonType, option, key, keyLen, keymap, value, len
+ * @param key         key to be escaped
+ * @return            success/failure
+ * */
+bool ekonValueSetKeyValueEscape(EkonValue *objV, EkonValue *childV,
+                                const char *key);
+
+/**
+ * @brief set key and value for an object
+ * @param objVal      the object EkonValue where newNode is a field
+ * @param newNode     newNode will already be allocated and filled
+ *                    ekonType, option, key, keyLen, keymap, value, len
+ * @param key         key to be escaped
+ * @param keyLen      length of that key
+ * @return            success/failure
+ * */
+bool ekonValueSetKeyValueLenEscape(EkonValue *objV, EkonValue *childV,
+                                   const char *key, u32 keyLen);
 
 #endif

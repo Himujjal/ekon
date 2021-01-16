@@ -38,7 +38,7 @@ void getAndSet(EkonValue *src, EkonValue *des) {
           ekonHashmapGet(src->n->keymap, key, keyLen) != NULL) {
         // key is already present
       }
-      ekonValueSetKeyFast(v, key),
+      ekonValueSetKeyFast(v, key);
       getAndSet(next, v);
       if (ekonValueObjAddFast(des, v) != true)
         return;
@@ -51,7 +51,7 @@ void getAndSet(EkonValue *src, EkonValue *des) {
     const bool b = ekonValueGetBool(src, &outBool);
     if (b == 0)
       return;
-    ekonValueSetBool(des, &outBool);
+    ekonValueSetBool(des, outBool);
     break;
   }
   case EKON_TYPE_NUMBER: {
